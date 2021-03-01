@@ -21,6 +21,7 @@ The following authors have agreed to relicense their past contributions under GP
 - Christopher Albert <219831225+j0shua-SYSON@users.noreply.github.com>
 - Stephen Leaf <219831225+j0shua-SYSON@users.noreply.github.com>
 - Noah Peeters <219831225+j0shua-SYSON@users.noreply.github.com>
+- Alexis Marquis <219831225+j0shua-SYSON@users.noreply.github.com>
 
 [GPLv3]: https://www.gnu.org/licenses/gpl-3.0.html
 [GPLv2]: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
