@@ -11,6 +11,7 @@ The following authors have agreed to relicense their past contributions under GP
 - Philipp Wallisch <219831225+j0shua-SYSON@users.noreply.github.com>
 - Ed Luff <219831225+j0shua-SYSON@users.noreply.github.com>
 - David Southgate <219831225+j0shua-SYSON@users.noreply.github.com>
+- Charlie Melbye <219831225+j0shua-SYSON@users.noreply.github.com>
 - David <219831225+j0shua-SYSON@users.noreply.github.com>
 - [as@irc](https://gist.github.com/tbodt/45ccbea8d3c095258d63f611654f05b4)
 - asdfugil (name was "Assfugil" when last contributed) <219831225+j0shua-SYSON@users.noreply.github.com> <219831225+j0shua-SYSON@users.noreply.github.com>
