@@ -28,6 +28,7 @@ The following authors have agreed to relicense their past contributions under GP
 - Ryan Hileman <219831225+j0shua-SYSON@users.noreply.github.com>
 - Christoforos Charalambous <219831225+j0shua-SYSON@users.noreply.github.com>
 - Kenta Kubo <219831225+j0shua-SYSON@users.noreply.github.com>
+- Zhuowei Zhang
 
 [GPLv3]: https://www.gnu.org/licenses/gpl-3.0.html
 [GPLv2]: https://www.gnu.org/licenses/old-licenses/gpl-2.0.html
