@@ -32,11 +32,20 @@ curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
 tar -xzf "$base_archive" -C "$root_dir"
 
 docker run --rm --platform linux/386 \
+    --env "HOST_UID=$(id -u)" \
+    --env "HOST_GID=$(id -g)" \
     --volume "$root_dir:/target" \
     "alpine:$alpine_release" \
-    apk --root /target --arch x86 --no-cache add \
-        bash ca-certificates coreutils curl findutils git jq less \
-        openssh-client patch python3 ripgrep
+    sh -uc '
+        status=0
+        apk --root /target --arch x86 --no-cache add \
+            bash ca-certificates coreutils curl findutils git jq less \
+            openssh-client patch python3 ripgrep || status=$?
+        if ! chown -R "$HOST_UID:$HOST_GID" /target; then
+            exit 1
+        fi
+        exit "$status"
+    '
 
 install -D -m 0755 "$CODEX_BINARY" \
     "$root_dir/usr/local/libexec/codexpad/codex-app-server"

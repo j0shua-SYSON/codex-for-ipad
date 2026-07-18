@@ -52,6 +52,8 @@ jobs:
     name: Build Codex app-server for iSH
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    outputs:
+      codex_revision: ${{ steps.resolve.outputs.codex_revision }}
     env:
       CARGO_TARGET_DIR: ${{ github.workspace }}/artifacts/cargo-target
       CARGO_HOME: ${{ github.workspace }}/.codex-local/cargo
@@ -63,7 +65,8 @@ jobs:
         with:
           persist-credentials: false
 
-      - name: Resolve pinned upstreams
+      - id: resolve
+        name: Resolve pinned upstreams
         shell: bash
         env:
           INPUT_CODEX_REVISION: ${{ inputs.codex_revision }}
@@ -81,6 +84,7 @@ jobs:
           echo "RUST_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
           echo "CODEX_TARGET=$target" >> "$GITHUB_ENV"
           echo "ZIG_VERSION=$zig" >> "$GITHUB_ENV"
+          echo "codex_revision=$revision" >> "$GITHUB_OUTPUT"
 
       - name: Fetch pinned Codex source
         shell: bash
@@ -134,42 +138,103 @@ jobs:
             -type f -print0 | sort -z | xargs -0 sha256sum \
             | sha256sum | tee artifacts/app-server-protocol.sha256
 
+      - name: Stage app-server bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          bundle=artifacts/app-server-bundle
+          mkdir -p "$bundle"
+          install -m 0755 \
+            "$CARGO_TARGET_DIR/$CODEX_TARGET/release/codex-app-server" \
+            "$bundle/codex-app-server"
+          cp artifacts/codex-app-server.sha256 \
+            artifacts/codex-app-server.file.txt \
+            artifacts/app-server-protocol.sha256 \
+            "$bundle/"
+
+      - name: Upload verified app-server
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codex-app-server-i686-musl
+          path: artifacts/app-server-bundle/
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 14
+
+  runtime:
+    name: Package pinned iSH runtime
+    needs: app-server
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      CODEX_REVISION: ${{ needs.app-server.outputs.codex_revision }}
+
+    steps:
+      - name: Check out CodexPad
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - name: Resolve and fetch pinned Codex source
+        shell: bash
+        run: |
+          set -euo pipefail
+          revision="$CODEX_REVISION"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          mkdir -p upstream/codex
+          git -C upstream/codex init
+          git -C upstream/codex remote add origin https://github.com/openai/codex.git
+          git -C upstream/codex fetch --depth=1 origin "$revision"
+          git -C upstream/codex checkout --detach FETCH_HEAD
+          test "$(git -C upstream/codex rev-parse HEAD)" = "$revision"
+          test -f upstream/codex/LICENSE
+
+      - name: Download verified app-server
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: codex-app-server-i686-musl
+          path: artifacts/app-server
+
+      - name: Verify app-server handoff
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="$GITHUB_WORKSPACE/artifacts/app-server/codex-app-server"
+          chmod 0755 "$binary"
+          expected="$(cut -d ' ' -f1 artifacts/app-server/codex-app-server.sha256)"
+          printf '%s  %s\n' "$expected" "$binary" | sha256sum --check --strict -
+          file "$binary"
+
       - name: Package pinned Alpine runtime
         shell: bash
         env:
-          CODEX_BINARY: ${{ env.CARGO_TARGET_DIR }}/${{ env.CODEX_TARGET }}/release/codex-app-server
+          CODEX_BINARY: ${{ github.workspace }}/artifacts/app-server/codex-app-server
           CODEX_SOURCE_DIR: ${{ github.workspace }}/upstream/codex
-          OUTPUT_ROOTFS: ${{ github.workspace }}/artifacts/codexpad-rootfs.tar.gz
+          OUTPUT_ROOTFS: ${{ github.workspace }}/artifacts/runtime/codexpad-rootfs.tar.gz
         run: $GITHUB_WORKSPACE/scripts/package-runtime-rootfs.sh
 
       - name: Inspect runtime image
         shell: bash
         run: |
           set -euo pipefail
-          tar -tzf artifacts/codexpad-rootfs.tar.gz \
+          tar -tzf artifacts/runtime/codexpad-rootfs.tar.gz \
             | grep -E '^\./(etc/init\.d/codexpad|etc/runlevels/default/codexpad|usr/local/libexec/codexpad/codex-app-server|usr/bin/git|usr/bin/rg)$'
-          tar -xOf artifacts/codexpad-rootfs.tar.gz \
+          tar -xOf artifacts/runtime/codexpad-rootfs.tar.gz \
             ./usr/local/share/codexpad/runtime.json | jq -e \
             --arg revision "$CODEX_REVISION" '.codexRevision == $revision'
 
       - name: Upload iSH runtime
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: codex-app-server-i686-musl
-          path: |
-            artifacts/cargo-target/i686-unknown-linux-musl/release/codex-app-server
-            artifacts/codex-app-server.sha256
-            artifacts/codex-app-server.file.txt
-            artifacts/app-server-protocol.sha256
-            artifacts/codexpad-rootfs.tar.gz
-            artifacts/codexpad-rootfs.tar.gz.sha256
+          name: codexpad-runtime-i686
+          path: artifacts/runtime/
           if-no-files-found: error
           compression-level: 9
           retention-days: 14
 
   ipad-app:
     name: Build integrated CodexPad app
-    needs: app-server
+    needs: runtime
     runs-on: macos-26
     timeout-minutes: 45
 
@@ -183,7 +248,7 @@ jobs:
       - name: Download verified runtime
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: codex-app-server-i686-musl
+          name: codexpad-runtime-i686
           path: artifacts/runtime
 
       - name: Install iSH build dependencies
