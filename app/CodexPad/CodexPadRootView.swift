@@ -199,6 +199,8 @@ struct CodexPadRootView: View {
             .padding(.horizontal, 18)
             .frame(minHeight: 54)
             .background(.bar)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("Account settings, \(model.account.displayName)")
             .accessibilityIdentifier("codexpad.settings")
         }
         .accessibilityIdentifier("codexpad.sidebar")
