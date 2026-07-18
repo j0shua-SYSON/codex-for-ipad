@@ -67,9 +67,16 @@ struct CodexFeatureCenterView: View {
             .listStyle(.sidebar)
             .searchable(text: $searchText, prompt: "Search every Codex feature")
             .navigationTitle("Feature Center")
+            .toolbar {
+                if selection == nil {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { dismiss() }
+                    }
+                }
+            }
         } detail: {
             if let selection, let feature = CodexFeatureCatalog.feature(method: selection) {
-                CodexFeatureDetailView(model: model, feature: feature)
+                CodexFeatureDetailView(model: model, feature: feature, done: { dismiss() })
                     .id(selection)
             } else {
                 ContentUnavailableView(
@@ -80,11 +87,6 @@ struct CodexFeatureCenterView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .toolbar {
-            ToolbarItem(placement: .confirmationAction) {
-                Button("Done") { dismiss() }
-            }
-        }
         .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
         .toolbarBackground(.visible, for: .navigationBar)
         .accessibilityIdentifier("codexpad.feature-center")
@@ -140,6 +142,7 @@ private struct FeatureCatalogRow: View {
 private struct CodexFeatureDetailView: View {
     @ObservedObject var model: CodexWorkspaceModel
     let feature: CodexFeatureDefinition
+    let done: () -> Void
 
     @State private var parameters = "{}"
     @State private var result = ""
@@ -188,6 +191,11 @@ private struct CodexFeatureDetailView: View {
         .background(CodexPalette.canvas)
         .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done", action: done)
+            }
+        }
         .task {
             parameters = model.featureDefaultParams(for: feature.method)
         }
