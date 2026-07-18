@@ -35,18 +35,18 @@ jobs:
             device_hint: 11-inch
             content_size: large
             appearance: light
-            expects_workbench: "true"
+            test_method: testCodexPadStandardWorkspaceAndTerminalRecovery
           - profile: mini-accessibility
             device_hint: mini
             content_size: accessibility-extra-extra-large
             appearance: dark
-            expects_workbench: "false"
+            test_method: testCodexPadAccessibilityWorkspaceAndTerminalRecovery
 
     env:
       DEVICE_HINT: ${{ matrix.device_hint }}
       CONTENT_SIZE: ${{ matrix.content_size }}
       APPEARANCE: ${{ matrix.appearance }}
-      CODEXPAD_EXPECTS_WORKBENCH: ${{ matrix.expects_workbench }}
+      TEST_METHOD: ${{ matrix.test_method }}
 
     steps:
       - name: Check out CodexPad
@@ -103,7 +103,7 @@ jobs:
             -scheme iSH \
             -destination "platform=iOS Simulator,id=$SIMULATOR_UDID" \
             -resultBundlePath "$GITHUB_WORKSPACE/artifacts/CodexPad-UI.xcresult" \
-            -only-testing:iSHUITests/UITests \
+            -only-testing:"iSHUITests/UITests/$TEST_METHOD" \
             -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO
 
