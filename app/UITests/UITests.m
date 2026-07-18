@@ -183,6 +183,17 @@
     if (expectsWorkbench) {
         terminalButton = [self hittableButtonWithIdentifier:@"codexpad.terminal"
                                               inApplication:app];
+        if (terminalButton == nil) {
+            // The 11-inch compact presentation keeps the system sidebar open
+            // after its Settings sheet closes. Dismiss that visible column
+            // before exercising the conversation toolbar.
+            XCUIElement *sidebarToggle = [self hittableButtonWithLabelContaining:@"sidebar"
+                                                                    inApplication:app];
+            XCTAssertNotNil(sidebarToggle);
+            [sidebarToggle tap];
+            terminalButton = [self hittableButtonWithIdentifier:@"codexpad.terminal"
+                                                    inApplication:app];
+        }
         XCTAssertNotNil(terminalButton);
     } else {
         // The single-column hierarchy has exactly one stable toolbar element;
