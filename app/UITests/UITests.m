@@ -149,8 +149,18 @@
         XCTAssertTrue(folderButton.isHittable);
         [folderButton tap];
         XCTAssertTrue([app.buttons[@"Unlink Files folder"] waitForExistenceWithTimeout:5]);
+
+        XCUIElement *openFeatureCenter = app.buttons[@"Open complete Feature Center"];
+        for (NSUInteger attempt = 0; attempt < 5 && !openFeatureCenter.isHittable; attempt++) {
+            [settingsScroller swipeUp];
+        }
+        XCTAssertTrue(openFeatureCenter.isHittable);
+        [openFeatureCenter tap];
+        XCUIElement *featureCenter = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-center"];
+        XCTAssertTrue([featureCenter waitForExistenceWithTimeout:5]);
+        XCTAssertTrue([app.staticTexts[@"125 compatible operations"] exists]);
         [app.buttons[@"Done"] tap];
-        XCTAssertTrue([app.buttons[@"codexpad.features"] waitForExistenceWithTimeout:5]);
+        XCTAssertTrue([featureCenter waitForNonExistenceWithTimeout:5]);
     }
 
     XCUIElement *terminalButton;
