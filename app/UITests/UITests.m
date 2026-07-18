@@ -60,9 +60,14 @@
     [features tap];
     XCUIElement *featureCenter = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-center"];
     XCTAssertTrue([featureCenter waitForExistenceWithTimeout:5]);
-    XCTAssertTrue([app.staticTexts[@"125 compatible operations"] exists]);
-    XCTAssertTrue([app.staticTexts[@"3 explicit platform exceptions"] exists]);
-    [app.buttons[@"Done"] tap];
+    XCUIElement *featureSummary = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-summary"];
+    XCTAssertTrue([featureSummary waitForExistenceWithTimeout:5]);
+    XCTAssertTrue([featureSummary.label containsString:@"125 compatible operations"]);
+    XCTAssertTrue([featureSummary.label containsString:@"3 explicit platform exceptions"]);
+    XCUIElement *featureDone = [self hittableButtonWithLabelContaining:@"Done"
+                                                          inApplication:app];
+    XCTAssertNotNil(featureDone);
+    [featureDone tap];
     XCTAssertTrue([featureCenter waitForNonExistenceWithTimeout:5]);
     [self expectationForPredicate:focused evaluatedWithObject:composer handler:nil];
     [self waitForExpectationsWithTimeout:5 handler:nil];
@@ -164,8 +169,13 @@
         [openFeatureCenter tap];
         XCUIElement *featureCenter = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-center"];
         XCTAssertTrue([featureCenter waitForExistenceWithTimeout:5]);
-        XCTAssertTrue([app.staticTexts[@"125 compatible operations"] exists]);
-        [app.buttons[@"Done"] tap];
+        XCUIElement *featureSummary = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-summary"];
+        XCTAssertTrue([featureSummary waitForExistenceWithTimeout:5]);
+        XCTAssertTrue([featureSummary.label containsString:@"125 compatible operations"]);
+        XCUIElement *featureDone = [self hittableButtonWithLabelContaining:@"Done"
+                                                              inApplication:app];
+        XCTAssertNotNil(featureDone);
+        [featureDone tap];
         XCTAssertTrue([featureCenter waitForNonExistenceWithTimeout:5]);
     }
 
