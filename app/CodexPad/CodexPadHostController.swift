@@ -100,7 +100,10 @@ public final class CodexPadHostViewController: UIViewController {
         returnButton.isHidden = !visible
         if visible {
             view.bringSubviewToFront(returnButton)
-            terminalViewController.view.accessibilityViewIsModal = true
+            // The return control is a sibling of the embedded terminal view.
+            // Making only the terminal modal hides that essential escape hatch
+            // from VoiceOver and UI automation at accessibility text sizes.
+            terminalViewController.view.accessibilityViewIsModal = false
             workspaceController?.view.accessibilityViewIsModal = false
             _ = terminalViewController.perform(Self.activateTerminalInputSelector)
         } else {
