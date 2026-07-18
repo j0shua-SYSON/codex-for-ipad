@@ -16,7 +16,7 @@ struct CodexConversationView: View {
             }
         }
         .background(CodexPalette.canvas)
-        .navigationTitle(model.selectedThread?.title ?? "Workspace")
+        .navigationTitle(model.selectedThread == nil ? "Workspace" : "")
         .navigationBarTitleDisplayMode(.inline)
     }
 
@@ -72,21 +72,24 @@ struct CodexConversationView: View {
                     }
 
                     ForEach(relevantRequests) { request in
-                        if request.kind == .question {
-                            QuestionRequestCard(request: request) { values in
-                                Task { await model.answer(request, values: values) }
-                            }
-                        } else if request.kind == .advanced {
-                            AdvancedServerRequestCard(request: request) { result in
-                                await model.answerAdvancedRequest(request, resultText: result)
-                            } reject: {
-                                Task { await model.rejectAdvancedRequest(request) }
-                            }
-                        } else {
-                            ApprovalRequestCard(request: request) { choice in
-                                Task { await model.resolve(request, choice: choice) }
+                        Group {
+                            if request.kind == .question {
+                                QuestionRequestCard(request: request) { values in
+                                    Task { await model.answer(request, values: values) }
+                                }
+                            } else if request.kind == .advanced {
+                                AdvancedServerRequestCard(request: request) { result in
+                                    await model.answerAdvancedRequest(request, resultText: result)
+                                } reject: {
+                                    Task { await model.rejectAdvancedRequest(request) }
+                                }
+                            } else {
+                                ApprovalRequestCard(request: request) { choice in
+                                    Task { await model.resolve(request, choice: choice) }
+                                }
                             }
                         }
+                        .padding(.leading, 42)
                     }
 
                     if model.isTurnRunning {
@@ -193,11 +196,12 @@ private struct ComposerBar: View {
                 }
             }
             HStack {
-                Label("Local iSH workspace", systemImage: "ipad")
+                Label("Local iSH", systemImage: "ipad")
                 Spacer()
-                Text(model.desktopModeEnabled
-                    ? "Desktop focus retained"
-                    : "Touch keyboard behavior")
+                Label(
+                    model.desktopModeEnabled ? "Desktop focus on" : "Touch input",
+                    systemImage: model.desktopModeEnabled ? "keyboard" : "hand.tap"
+                )
             }
             .font(.caption2)
             .foregroundStyle(CodexPalette.secondaryInk)

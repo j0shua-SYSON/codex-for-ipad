@@ -35,6 +35,7 @@ struct CodexFeatureCenterView: View {
                             ForEach(features) { feature in
                                 FeatureCatalogRow(feature: feature)
                                     .tag(feature.method)
+                                    .accessibilityIdentifier("codexpad.feature.\(feature.method)")
                             }
                         }
                     }
@@ -66,11 +67,6 @@ struct CodexFeatureCenterView: View {
             .listStyle(.sidebar)
             .searchable(text: $searchText, prompt: "Search every Codex feature")
             .navigationTitle("Feature Center")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") { dismiss() }
-                }
-            }
         } detail: {
             if let selection, let feature = CodexFeatureCatalog.feature(method: selection) {
                 CodexFeatureDetailView(model: model, feature: feature)
@@ -84,6 +80,13 @@ struct CodexFeatureCenterView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("Done") { dismiss() }
+            }
+        }
+        .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+        .toolbarBackground(.visible, for: .navigationBar)
         .accessibilityIdentifier("codexpad.feature-center")
     }
 
@@ -176,12 +179,14 @@ private struct CodexFeatureDetailView: View {
                     eventLog
                 }
             }
-            .padding(24)
+            .padding(.horizontal, 24)
+            .padding(.top, 24)
+            .padding(.bottom, 56)
             .frame(maxWidth: 880, alignment: .leading)
             .frame(maxWidth: .infinity, alignment: .center)
         }
         .background(CodexPalette.canvas)
-        .navigationTitle(feature.title)
+        .navigationTitle("")
         .navigationBarTitleDisplayMode(.inline)
         .task {
             parameters = model.featureDefaultParams(for: feature.method)
