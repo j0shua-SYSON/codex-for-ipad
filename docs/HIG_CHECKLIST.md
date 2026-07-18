@@ -35,5 +35,5 @@ This checklist is a release gate for CodexPad.
 
 - Build with the current hosted Xcode runner.
 - Run unit tests for protocol parsing and state reduction.
-- Run UI tests at two iPad sizes and at an accessibility text size.
+- Run UI tests at 13-inch, 11-inch, and mini iPad sizes, including an accessibility text size.
 - Audit with Accessibility Inspector and VoiceOver on a physical iPad before release.

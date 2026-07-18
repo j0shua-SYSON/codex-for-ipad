@@ -31,6 +31,11 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - profile: 13-inch-standard
+            device_hint: 13-inch
+            content_size: large
+            appearance: light
+            test_method: testCodexPadStandardWorkspaceAndTerminalRecovery
           - profile: 11-inch-standard
             device_hint: 11-inch
             content_size: large
