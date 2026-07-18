@@ -1,2 +1,7 @@
 #include "StaticLib.xcconfig"
 HEADER_SEARCH_PATHS = $(inherited) $(SRCROOT) $(SRCROOT)/deps/libarchive/libarchive
+CLANG_ENABLE_MODULES = YES
+DEFINES_MODULE = YES
+PRODUCT_MODULE_NAME = CodexPadApp
+SWIFT_OBJC_INTERFACE_HEADER_NAME = CodexPadApp-Swift.h
+SWIFT_VERSION = 5.0
