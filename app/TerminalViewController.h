@@ -14,6 +14,8 @@
 
 - (void)startNewSession;
 - (void)reconnectSessionFromTerminalUUID:(NSUUID *)uuid;
+- (void)codexPadActivateInput;
+- (void)codexPadDeactivateInput;
 @property (readonly) NSUUID *sessionTerminalUUID; // 0 means invalid
 @property UISceneSession *sceneSession API_AVAILABLE(ios(13.0));
 

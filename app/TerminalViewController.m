@@ -56,6 +56,15 @@
 
 @implementation TerminalViewController
 
+- (void)codexPadActivateInput {
+    [self.termView becomeFirstResponder];
+}
+
+- (void)codexPadDeactivateInput {
+    [self.termView resignFirstResponder];
+    [self.view endEditing:YES];
+}
+
 - (void)viewDidLoad {
     [super viewDidLoad];
 
