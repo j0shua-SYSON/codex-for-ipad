@@ -8,50 +8,13 @@ struct CodexPadRootView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @State private var showsWorkbench = false
+    @State private var showsThreadBrowser = false
     @State private var didConfigureInitialLayout = false
     @State private var searchText = ""
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
-            sidebar
-        } detail: {
-            CodexConversationView(model: model)
-                .toolbar {
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        Button(action: showTerminal) {
-                            Label("Terminal", systemImage: "terminal")
-                        }
-                        .accessibilityIdentifier("codexpad.terminal")
-                        .keyboardShortcut("t", modifiers: [.command, .shift])
-
-                        Button {
-                            Task { await model.createThread() }
-                        } label: {
-                            Label("New thread", systemImage: "square.and.pencil")
-                        }
-                        .accessibilityIdentifier("codexpad.new-thread")
-                        .keyboardShortcut("n", modifiers: .command)
-                        .disabled(!model.enginePhase.isReady)
-
-                        if !shouldPrioritizeConversation {
-                            Button {
-                                showsWorkbench.toggle()
-                            } label: {
-                                Label(
-                                    showsWorkbench ? "Hide workbench" : "Show workbench",
-                                    systemImage: "sidebar.right"
-                                )
-                            }
-                            .accessibilityIdentifier("codexpad.toggle-workbench")
-                            .accessibilityValue(showsWorkbench ? "Shown" : "Hidden")
-                            .keyboardShortcut("i", modifiers: [.command, .option])
-                        }
-                    }
-                }
-        }
-        .navigationSplitViewStyle(.balanced)
+        adaptiveWorkspace
         .inspector(isPresented: $showsWorkbench) {
             CodexWorkbenchView(model: model)
                 .inspectorColumnWidth(min: 320, ideal: 420, max: 520)
@@ -61,6 +24,19 @@ struct CodexPadRootView: View {
         .background(CodexPalette.canvas)
         .sheet(isPresented: $model.showsSettings) {
             CodexSettingsView(model: model)
+        }
+        .sheet(isPresented: $showsThreadBrowser) {
+            NavigationStack {
+                sidebar
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") {
+                                showsThreadBrowser = false
+                            }
+                        }
+                    }
+            }
+            .presentationDragIndicator(.visible)
         }
         .task {
             configureInitialLayout()
@@ -75,6 +51,69 @@ struct CodexPadRootView: View {
         .onChange(of: model.loginURL) { _, url in
             if let url { openURL(url) }
         }
+    }
+
+    @ViewBuilder
+    private var adaptiveWorkspace: some View {
+        if shouldPrioritizeConversation {
+            NavigationStack {
+                conversation
+            }
+        } else {
+            NavigationSplitView {
+                sidebar
+            } detail: {
+                conversation
+            }
+            .navigationSplitViewStyle(.balanced)
+        }
+    }
+
+    private var conversation: some View {
+        CodexConversationView(model: model)
+            .toolbar {
+                if shouldPrioritizeConversation {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button {
+                            showsThreadBrowser = true
+                        } label: {
+                            Label("Threads", systemImage: "sidebar.left")
+                        }
+                        .accessibilityIdentifier("codexpad.threads")
+                    }
+                }
+
+                ToolbarItemGroup(placement: .topBarTrailing) {
+                    Button(action: showTerminal) {
+                        Label("Terminal", systemImage: "terminal")
+                    }
+                    .accessibilityIdentifier("codexpad.terminal")
+                    .keyboardShortcut("t", modifiers: [.command, .shift])
+
+                    Button {
+                        Task { await model.createThread() }
+                    } label: {
+                        Label("New thread", systemImage: "square.and.pencil")
+                    }
+                    .accessibilityIdentifier("codexpad.new-thread")
+                    .keyboardShortcut("n", modifiers: .command)
+                    .disabled(!model.enginePhase.isReady)
+
+                    if !shouldPrioritizeConversation {
+                        Button {
+                            showsWorkbench.toggle()
+                        } label: {
+                            Label(
+                                showsWorkbench ? "Hide workbench" : "Show workbench",
+                                systemImage: "sidebar.right"
+                            )
+                        }
+                        .accessibilityIdentifier("codexpad.toggle-workbench")
+                        .accessibilityValue(showsWorkbench ? "Shown" : "Hidden")
+                        .keyboardShortcut("i", modifiers: [.command, .option])
+                    }
+                }
+            }
     }
 
     private var sidebar: some View {
@@ -112,6 +151,7 @@ struct CodexPadRootView: View {
 
             Section {
                 Button {
+                    showsThreadBrowser = false
                     model.showsSettings = true
                 } label: {
                     Label(model.account.displayName, systemImage: model.account.isAuthenticated ? "person.crop.circle.fill" : "person.crop.circle.badge.questionmark")
@@ -130,6 +170,9 @@ struct CodexPadRootView: View {
         Binding(
             get: { model.selectedThreadID },
             set: { id in
+                if shouldPrioritizeConversation {
+                    showsThreadBrowser = false
+                }
                 Task { await model.selectThread(id) }
             }
         )
@@ -145,10 +188,7 @@ struct CodexPadRootView: View {
 
     private func prioritizeConversationIfNeeded() {
         if shouldPrioritizeConversation {
-            columnVisibility = .detailOnly
             showsWorkbench = false
-        } else {
-            columnVisibility = .automatic
         }
     }
 
@@ -158,7 +198,6 @@ struct CodexPadRootView: View {
             return
         }
         didConfigureInitialLayout = true
-        columnVisibility = shouldPrioritizeConversation ? .detailOnly : .automatic
         showsWorkbench = !shouldPrioritizeConversation
     }
 
