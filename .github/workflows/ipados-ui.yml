@@ -6,19 +6,13 @@ on:
     branches: [main]
     paths:
       - ".github/workflows/ipados-ui.yml"
-      - "app/CodexPad/**"
-      - "app/UITests/UITests.m"
-      - "app/*.xcconfig"
-      - "app/Info.plist"
+      - "app/**"
       - "iSH.xcodeproj/**"
   pull_request:
     branches: [main]
     paths:
       - ".github/workflows/ipados-ui.yml"
-      - "app/CodexPad/**"
-      - "app/UITests/UITests.m"
-      - "app/*.xcconfig"
-      - "app/Info.plist"
+      - "app/**"
       - "iSH.xcodeproj/**"
 
 permissions:
