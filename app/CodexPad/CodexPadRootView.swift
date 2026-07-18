@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CodexPadRootView: View {
     @ObservedObject var model: CodexWorkspaceModel
@@ -7,7 +8,8 @@ struct CodexPadRootView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @State private var showsWorkbench = true
+    @State private var showsWorkbench = false
+    @State private var didConfigureInitialLayout = false
     @State private var searchText = ""
 
     var body: some View {
@@ -58,7 +60,7 @@ struct CodexPadRootView: View {
             CodexSettingsView(model: model)
         }
         .task {
-            prioritizeConversationIfNeeded()
+            configureInitialLayout()
             await model.start()
         }
         .onChange(of: dynamicTypeSize) { _, _ in
@@ -139,8 +141,23 @@ struct CodexPadRootView: View {
     }
 
     private func prioritizeConversationIfNeeded() {
-        if dynamicTypeSize.isAccessibilitySize || horizontalSizeClass == .compact {
+        if shouldPrioritizeConversation {
             showsWorkbench = false
         }
+    }
+
+    private func configureInitialLayout() {
+        guard !didConfigureInitialLayout else {
+            prioritizeConversationIfNeeded()
+            return
+        }
+        didConfigureInitialLayout = true
+        showsWorkbench = !shouldPrioritizeConversation
+    }
+
+    private var shouldPrioritizeConversation: Bool {
+        dynamicTypeSize.isAccessibilitySize
+            || horizontalSizeClass == .compact
+            || UIScreen.main.bounds.width < 800
     }
 }
