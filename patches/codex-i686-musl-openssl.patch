@@ -52,6 +52,28 @@ index 23b5774f5..d17ec6172 100644
  # Build OpenSSL from source for musl builds.
  [target.x86_64-unknown-linux-musl.dependencies]
  openssl-sys = { workspace = true, features = ["vendored"] }
+diff --git a/codex-rs/linux-sandbox/src/landlock.rs b/codex-rs/linux-sandbox/src/landlock.rs
+--- a/codex-rs/linux-sandbox/src/landlock.rs
++++ b/codex-rs/linux-sandbox/src/landlock.rs
+@@ -166,6 +166,18 @@ fn install_landlock_rules_on_current_thread(
+ ///
+ /// The filter is applied to the current thread so only the sandboxed child
+ /// inherits it.
++#[cfg(all(target_arch = "x86", target_os = "linux", target_env = "musl"))]
++fn install_network_seccomp_filter_on_current_thread(
++    _mode: NetworkSeccompMode,
++) -> std::result::Result<(), SandboxErr> {
++    // seccompiler has no 32-bit x86 backend, and iSH does not implement the
++    // host seccomp/namespaces used by Codex's Linux sandbox. CodexPad starts
++    // threads with danger-full-access inside the iPad-contained iSH guest, so
++    // this code is retained only to make the upstream crate target-portable.
++    Ok(())
++}
++
++#[cfg(not(all(target_arch = "x86", target_os = "linux", target_env = "musl")))]
+ fn install_network_seccomp_filter_on_current_thread(
+     mode: NetworkSeccompMode,
+ ) -> std::result::Result<(), SandboxErr> {
 diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
 index a44af07b5..47b061a55 100644
 --- a/codex-rs/Cargo.lock

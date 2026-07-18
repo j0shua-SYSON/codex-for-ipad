@@ -37,6 +37,7 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 - Complete `initialize` / `initialized` before other requests.
 - Delegate credential persistence and refresh to the upstream app-server inside the private iSH root.
 - Keep repositories and Codex state inside the selected iSH root.
+- Start threads with `danger-full-access` inside the guest, because iSH cannot implement Codex's desktop Linux seccomp/namespace sandbox. Treat the iPad application container as the outer OS boundary and keep approvals `on-request`.
 - Route command, file-change, permission, and user-input requests to native approval surfaces.
 - Keep the terminal available as a recovery tool; it is not the primary UI.
 
@@ -45,6 +46,7 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 - Active turns can be suspended when iPadOS suspends the app.
 - Performance depends on x86 emulation and project size.
 - External toolchains still need Alpine-compatible x86 packages.
+- iSH is not a security boundary. Approved Codex tools can access the complete selected guest root; only expose workspaces and credentials appropriate for that app container.
 - Experimental Code Mode cannot run in-process because Rusty V8 has no i686-musl distribution. The compatibility layer preserves the upstream service API and returns an explicit error only if that disabled-by-default feature is enabled.
 - Provider-backed model inference still requires network access; this architecture does not claim offline LLM inference.
 - Distribution must satisfy iSH's GPL terms and the additional iOS permission in `LICENSE.IOS`; Codex notices remain included under Apache-2.0.
