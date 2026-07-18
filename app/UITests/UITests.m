@@ -8,6 +8,7 @@
 #import <XCTest/XCTest.h>
 
 @interface UITests : XCTestCase
+- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench;
 @end
 
 @implementation UITests
@@ -16,7 +17,15 @@
     self.continueAfterFailure = NO;
 }
 
-- (void)testCodexPadDemoWorkspaceAndTerminalRecovery {
+- (void)testCodexPadStandardWorkspaceAndTerminalRecovery {
+    [self exerciseCodexPadExpectingWorkbench:YES];
+}
+
+- (void)testCodexPadAccessibilityWorkspaceAndTerminalRecovery {
+    [self exerciseCodexPadExpectingWorkbench:NO];
+}
+
+- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench {
     XCUIApplication *app = [[XCUIApplication alloc] init];
     app.launchArguments = @[@"--codexpad-demo"];
     [app launch];
@@ -25,8 +34,6 @@
     XCTAssertTrue([workspace waitForExistenceWithTimeout:15]);
     XCTAssertTrue([app.keyboards.firstMatch waitForNonExistenceWithTimeout:5]);
 
-    NSString *workbenchExpectation = NSProcessInfo.processInfo.environment[@"CODEXPAD_EXPECTS_WORKBENCH"];
-    BOOL expectsWorkbench = workbenchExpectation == nil || workbenchExpectation.boolValue;
     XCUIElement *workbench = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.workbench"];
     if (expectsWorkbench) {
         XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
@@ -48,9 +55,14 @@
     [returnButton tap];
     XCTAssertTrue([workspace waitForExistenceWithTimeout:5]);
     XCTAssertTrue([app.keyboards.firstMatch waitForNonExistenceWithTimeout:5]);
+    if (expectsWorkbench) {
+        XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
+    } else {
+        XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
+    }
 
     XCTAttachment *screenshot = [XCTAttachment attachmentWithScreenshot:XCUIScreen.mainScreen.screenshot];
-    screenshot.name = @"CodexPad demo workspace";
+    screenshot.name = expectsWorkbench ? @"CodexPad standard workspace" : @"CodexPad accessibility workspace";
     screenshot.lifetime = XCTAttachmentLifetimeKeepAlways;
     [self addAttachment:screenshot];
 }
