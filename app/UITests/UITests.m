@@ -9,6 +9,8 @@
 
 @interface UITests : XCTestCase
 - (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench;
+- (XCUIElement *)hittableButtonWithIdentifier:(NSString *)identifier
+                                inApplication:(XCUIApplication *)app;
 @end
 
 @implementation UITests
@@ -54,10 +56,9 @@
     XCTAssertTrue([composer exists]);
     XCTAssertTrue([composer isHittable]);
 
-    XCUIElement *terminalButton = app.buttons[@"codexpad.terminal"];
-    if (!expectsWorkbench) {
-        XCTAssertTrue([terminalButton isHittable]);
-    }
+    XCUIElement *terminalButton = [self hittableButtonWithIdentifier:@"codexpad.terminal"
+                                                       inApplication:app];
+    XCTAssertNotNil(terminalButton);
     [terminalButton tap];
     XCUIElement *returnButton = app.buttons[@"codexpad.return-to-workspace"];
     XCTAssertTrue([returnButton waitForExistenceWithTimeout:5]);
@@ -77,6 +78,22 @@
     screenshot.name = expectsWorkbench ? @"CodexPad standard workspace" : @"CodexPad accessibility workspace";
     screenshot.lifetime = XCTAttachmentLifetimeKeepAlways;
     [self addAttachment:screenshot];
+}
+
+- (XCUIElement *)hittableButtonWithIdentifier:(NSString *)identifier
+                                inApplication:(XCUIApplication *)app {
+    // SwiftUI can retain an offscreen copy of a detail toolbar item while an
+    // inspector is presented. XCTest's keyed subscript selects that ghost
+    // element first, even though the visible toolbar control is actionable.
+    // Walk every match and exercise the same control a user can actually tap.
+    XCUIElementQuery *matches = [app.buttons matchingIdentifier:identifier];
+    for (NSUInteger index = 0; index < matches.count; index++) {
+        XCUIElement *candidate = [matches elementBoundByIndex:index];
+        if (candidate.isHittable) {
+            return candidate;
+        }
+    }
+    return nil;
 }
 
 @end
