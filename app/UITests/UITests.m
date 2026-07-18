@@ -21,7 +21,8 @@
     app.launchArguments = @[@"--codexpad-demo"];
     [app launch];
 
-    XCTAssertTrue([app.staticTexts[@"CODEX / LOCAL"] waitForExistenceWithTimeout:15]);
+    XCUIElement *workspace = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.workspace"];
+    XCTAssertTrue([workspace waitForExistenceWithTimeout:15]);
     XCTAssertTrue([app.staticTexts[@"Make the repository update-safe"] exists]);
     XCTAssertTrue([app.buttons[@"codexpad.new-thread"] exists]);
     XCTAssertTrue([app.buttons[@"codexpad.terminal"] exists]);
@@ -34,7 +35,7 @@
     XCUIElement *returnButton = app.buttons[@"codexpad.return-to-workspace"];
     XCTAssertTrue([returnButton waitForExistenceWithTimeout:5]);
     [returnButton tap];
-    XCTAssertTrue([app.staticTexts[@"CODEX / LOCAL"] waitForExistenceWithTimeout:5]);
+    XCTAssertTrue([workspace waitForExistenceWithTimeout:5]);
 
     XCTAttachment *screenshot = [XCTAttachment attachmentWithScreenshot:XCUIScreen.mainScreen.screenshot];
     screenshot.name = @"CodexPad demo workspace";
