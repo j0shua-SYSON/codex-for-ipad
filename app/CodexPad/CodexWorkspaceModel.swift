@@ -157,7 +157,10 @@ final class CodexWorkspaceModel: ObservableObject {
                 params: .object([
                     "cwd": .string(workspacePath),
                     "approvalPolicy": .string("on-request"),
-                    "sandbox": .string("workspace-write"),
+                    // iSH cannot enforce Codex's Linux seccomp/namespace sandbox.
+                    // The iPad app container is the execution boundary; approvals
+                    // remain on-request for commands and file changes.
+                    "sandbox": .string("danger-full-access"),
                     "personality": .string("pragmatic"),
                     "serviceName": .string("codexpad")
                 ])

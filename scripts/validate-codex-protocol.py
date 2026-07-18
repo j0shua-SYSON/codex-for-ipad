@@ -53,7 +53,7 @@ def main() -> int:
             "cwd",
             "approvalPolicy",
             "sandbox",
-            "workspace-write",
+            "danger-full-access",
             "serviceName",
         },
         "v2/TurnStartParams.json": {
