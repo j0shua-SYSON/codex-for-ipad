@@ -13,6 +13,32 @@ struct CodexPadRootView: View {
             sidebar
         } content: {
             CodexConversationView(model: model)
+                .toolbar {
+                    ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button {
+                            Task { await model.createThread() }
+                        } label: {
+                            Label("New thread", systemImage: "square.and.pencil")
+                        }
+                        .accessibilityIdentifier("codexpad.new-thread")
+                        .keyboardShortcut("n", modifiers: .command)
+                        .disabled(!model.enginePhase.isReady)
+
+                        Button(action: showTerminal) {
+                            Label("Terminal", systemImage: "terminal")
+                        }
+                        .accessibilityIdentifier("codexpad.terminal")
+                        .keyboardShortcut("t", modifiers: [.command, .shift])
+
+                        Button {
+                            columnVisibility = columnVisibility == .all ? .doubleColumn : .all
+                        } label: {
+                            Label("Toggle workbench", systemImage: "sidebar.right")
+                        }
+                        .accessibilityIdentifier("codexpad.toggle-workbench")
+                        .keyboardShortcut("i", modifiers: [.command, .option])
+                    }
+                }
         } detail: {
             CodexWorkbenchView(model: model)
         }
@@ -20,31 +46,6 @@ struct CodexPadRootView: View {
         .accessibilityIdentifier("codexpad.workspace")
         .tint(CodexPalette.cobalt)
         .background(CodexPalette.canvas)
-        .toolbar {
-            ToolbarItemGroup(placement: .topBarTrailing) {
-                Button {
-                    Task { await model.createThread() }
-                } label: {
-                    Label("New thread", systemImage: "square.and.pencil")
-                }
-                .accessibilityIdentifier("codexpad.new-thread")
-                .keyboardShortcut("n", modifiers: .command)
-                .disabled(!model.enginePhase.isReady)
-
-                Button(action: showTerminal) {
-                    Label("Terminal", systemImage: "terminal")
-                }
-                .accessibilityIdentifier("codexpad.terminal")
-                .keyboardShortcut("t", modifiers: [.command, .shift])
-
-                Button {
-                    columnVisibility = columnVisibility == .all ? .doubleColumn : .all
-                } label: {
-                    Label("Toggle workbench", systemImage: "sidebar.right")
-                }
-                .keyboardShortcut("i", modifiers: [.command, .option])
-            }
-        }
         .sheet(isPresented: $model.showsSettings) {
             CodexSettingsView(model: model)
         }
