@@ -102,6 +102,22 @@ NSArray<NSString *> *CurrentAppGroups(void) {
 }
 
 NSURL *ContainerURL(void) {
-    NSString *appGroup = CurrentAppGroups()[0];
-    return [NSFileManager.defaultManager containerURLForSecurityApplicationGroupIdentifier:appGroup];
+    NSFileManager *manager = NSFileManager.defaultManager;
+    NSString *appGroup = CurrentAppGroups().firstObject;
+    if (appGroup.length != 0) {
+        NSURL *sharedContainer = [manager containerURLForSecurityApplicationGroupIdentifier:appGroup];
+        if (sharedContainer != nil)
+            return sharedContainer;
+    }
+
+    // Unsigned simulator builds do not receive the application-group
+    // entitlement. Keep their roots inside the app container instead of
+    // passing a nil URL to the root manager. Properly signed builds continue
+    // to use the shared App Group path above.
+    NSURL *applicationSupport = [manager URLsForDirectory:NSApplicationSupportDirectory
+                                                 inDomains:NSUserDomainMask].firstObject;
+    if (applicationSupport == nil)
+        applicationSupport = manager.temporaryDirectory;
+    NSLog(@"App Group container unavailable; using app-local storage at %@", applicationSupport.path);
+    return [applicationSupport URLByAppendingPathComponent:@"CodexPad" isDirectory:YES];
 }
