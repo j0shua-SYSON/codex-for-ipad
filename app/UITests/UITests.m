@@ -133,16 +133,17 @@
                                                      inApplication:app];
         if (settings == nil) {
             // At 11-inch portrait widths, NavigationSplitView correctly
-            // collapses its sidebar while retaining the inspector. Exercise
-            // the visible system sidebar control before opening Settings.
+            // collapses its sidebar. Exercise the visible system sidebar
+            // control before opening the bottom-pinned account settings.
             XCUIElement *sidebarToggle = [self hittableButtonWithLabelContaining:@"sidebar"
                                                                     inApplication:app];
             XCTAssertNotNil(sidebarToggle);
             [sidebarToggle tap];
             XCUIElement *settingsCandidate = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.settings"];
             XCTAssertTrue([settingsCandidate waitForExistenceWithTimeout:5]);
-            settings = [self hittableButtonWithIdentifier:@"codexpad.settings"
-                                             inApplication:app];
+            settings = settingsCandidate.isHittable
+                ? settingsCandidate
+                : [self hittableButtonWithIdentifier:@"codexpad.settings" inApplication:app];
         }
         XCTAssertNotNil(settings);
         [settings tap];
