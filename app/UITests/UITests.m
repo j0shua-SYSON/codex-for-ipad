@@ -137,15 +137,16 @@
             // collapses its sidebar. Exercise the visible system sidebar
             // control before opening the bottom-pinned account settings. SwiftUI
             // does not publish that row as a stable XCUIElement in this compact
-            // presentation, so tap its verified visual position within the
-            // sidebar and assert the resulting Settings destination instead.
+            // presentation, so wait for visible sidebar content, tap the row's
+            // verified compact-screen position, and assert the resulting
+            // Settings destination instead.
             XCUIElement *sidebarToggle = [self hittableButtonWithLabelContaining:@"sidebar"
                                                                     inApplication:app];
             XCTAssertNotNil(sidebarToggle);
             [sidebarToggle tap];
-            XCTAssertTrue([sidebar waitForExistenceWithTimeout:5]);
-            XCTAssertTrue(sidebar.isHittable);
-            [[sidebar coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.97)] tap];
+            XCUIElement *recentThreads = app.staticTexts[@"Recent threads"];
+            XCTAssertTrue([recentThreads waitForExistenceWithTimeout:5]);
+            [[app coordinateWithNormalizedOffset:CGVectorMake(0.20, 0.96)] tap];
             openedSettingsFromSidebar = YES;
         } else {
             [settings tap];
