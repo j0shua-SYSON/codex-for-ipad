@@ -146,7 +146,7 @@ struct CodexPadRootView: View {
             columnVisibility = .detailOnly
             showsWorkbench = false
         } else {
-            columnVisibility = .all
+            columnVisibility = .automatic
         }
     }
 
@@ -156,7 +156,7 @@ struct CodexPadRootView: View {
             return
         }
         didConfigureInitialLayout = true
-        columnVisibility = shouldPrioritizeConversation ? .detailOnly : .all
+        columnVisibility = shouldPrioritizeConversation ? .detailOnly : .automatic
         showsWorkbench = !shouldPrioritizeConversation
     }
 
