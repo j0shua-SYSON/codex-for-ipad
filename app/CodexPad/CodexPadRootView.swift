@@ -194,14 +194,13 @@ struct CodexPadRootView: View {
                         .foregroundStyle(CodexPalette.secondaryInk)
                 }
             }
+            .accessibilityLabel("Account settings, \(model.account.displayName)")
+            .accessibilityIdentifier("codexpad.settings")
             .buttonStyle(.plain)
             .contentShape(Rectangle())
             .padding(.horizontal, 18)
             .frame(minHeight: 54)
             .background(.bar)
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("Account settings, \(model.account.displayName)")
-            .accessibilityIdentifier("codexpad.settings")
         }
         .accessibilityIdentifier("codexpad.sidebar")
         .background(CodexPalette.canvas)
