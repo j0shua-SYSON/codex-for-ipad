@@ -1,46 +1,87 @@
 name: Codex i686 compatibility
 
 on:
+  workflow_call:
+    inputs:
+      codex_revision:
+        description: Exact openai/codex commit to test
+        required: true
+        type: string
+      rust_toolchain:
+        description: Rust toolchain required by that Codex revision
+        required: true
+        type: string
   workflow_dispatch:
+    inputs:
+      codex_revision:
+        description: Optional openai/codex commit override
+        required: false
+        type: string
+      rust_toolchain:
+        description: Optional Rust toolchain override
+        required: false
+        type: string
   push:
     branches: [main]
     paths:
       - ".github/workflows/codex-i686.yml"
+      - "Dependencies/upstreams.json"
       - "scripts/build-codex-i686.sh"
-      - "docs/ARCHITECTURE.md"
   pull_request:
     branches: [main]
     paths:
       - ".github/workflows/codex-i686.yml"
+      - "Dependencies/upstreams.json"
       - "scripts/build-codex-i686.sh"
 
 permissions:
   contents: read
-
-env:
-  CODEX_REVISION: 6bd3f5e3db8275c10c7e4bbcc1342c32a89b7eee
-  RUST_TOOLCHAIN: 1.95.0
-  CARGO_TARGET_DIR: ${{ github.workspace }}/artifacts/cargo-target
-  CARGO_HOME: ${{ github.workspace }}/.codex-local/cargo
-  RUSTUP_HOME: ${{ github.workspace }}/.codex-local/rustup
 
 jobs:
   app-server:
     name: Build Codex app-server for iSH
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/artifacts/cargo-target
+      CARGO_HOME: ${{ github.workspace }}/.codex-local/cargo
+      RUSTUP_HOME: ${{ github.workspace }}/.codex-local/rustup
 
     steps:
       - name: Check out CodexPad
         uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
-
-      - name: Check out pinned Codex source
-        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-          repository: openai/codex
-          ref: ${{ env.CODEX_REVISION }}
-          path: upstream/codex
           persist-credentials: false
+
+      - name: Resolve pinned upstreams
+        shell: bash
+        env:
+          INPUT_CODEX_REVISION: ${{ inputs.codex_revision }}
+          INPUT_RUST_TOOLCHAIN: ${{ inputs.rust_toolchain }}
+        run: |
+          set -euo pipefail
+          revision="${INPUT_CODEX_REVISION:-$(jq -r '.codex.revision' Dependencies/upstreams.json)}"
+          toolchain="${INPUT_RUST_TOOLCHAIN:-$(jq -r '.codex.rustToolchain' Dependencies/upstreams.json)}"
+          target="$(jq -r '.codex.target' Dependencies/upstreams.json)"
+          zig="$(jq -r '.tooling.zig' Dependencies/upstreams.json)"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$toolchain" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          [[ "$target" == "i686-unknown-linux-musl" ]]
+          echo "CODEX_REVISION=$revision" >> "$GITHUB_ENV"
+          echo "RUST_TOOLCHAIN=$toolchain" >> "$GITHUB_ENV"
+          echo "CODEX_TARGET=$target" >> "$GITHUB_ENV"
+          echo "ZIG_VERSION=$zig" >> "$GITHUB_ENV"
+
+      - name: Fetch pinned Codex source
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p upstream/codex
+          git -C upstream/codex init
+          git -C upstream/codex remote add origin https://github.com/openai/codex.git
+          git -C upstream/codex fetch --depth=1 origin "$CODEX_REVISION"
+          git -C upstream/codex checkout --detach FETCH_HEAD
+          test "$(git -C upstream/codex rev-parse HEAD)" = "$CODEX_REVISION"
 
       - name: Install pinned Rust toolchain
         shell: bash
@@ -48,13 +89,13 @@ jobs:
           set -euo pipefail
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
             | sh -s -- -y --profile minimal --default-toolchain "$RUST_TOOLCHAIN" \
-                --target i686-unknown-linux-musl
+                --target "$CODEX_TARGET"
           echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
 
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
-          version: 0.14.1
+          version: ${{ env.ZIG_VERSION }}
 
       - name: Install cargo-zigbuild
         shell: bash
@@ -65,14 +106,17 @@ jobs:
         shell: bash
         run: $GITHUB_WORKSPACE/scripts/build-codex-i686.sh
 
-      - name: Inspect binary
+      - name: Inspect binary and protocol
         shell: bash
         run: |
           set -euo pipefail
-          binary="$CARGO_TARGET_DIR/i686-unknown-linux-musl/release/codex-app-server"
-          file "$binary"
+          binary="$CARGO_TARGET_DIR/$CODEX_TARGET/release/codex-app-server"
+          file "$binary" | tee artifacts/codex-app-server.file.txt
           test "$(od -An -tu1 -j4 -N1 "$binary" | tr -d ' ')" = "1"
           sha256sum "$binary" | tee artifacts/codex-app-server.sha256
+          find upstream/codex/codex-rs/app-server-protocol/schema \
+            -type f -print0 | sort -z | xargs -0 sha256sum \
+            | sha256sum | tee artifacts/app-server-protocol.sha256
 
       - name: Upload iSH runtime
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -81,6 +125,8 @@ jobs:
           path: |
             artifacts/cargo-target/i686-unknown-linux-musl/release/codex-app-server
             artifacts/codex-app-server.sha256
+            artifacts/codex-app-server.file.txt
+            artifacts/app-server-protocol.sha256
           if-no-files-found: error
           compression-level: 9
           retention-days: 14
