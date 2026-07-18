@@ -90,6 +90,7 @@ enum ServerRequestKind: String, Equatable, Sendable {
     case permissions
     case question
     case elicitation
+    case advanced
     case unsupported
 }
 
@@ -105,6 +106,7 @@ struct InputQuestion: Identifiable, Equatable, Sendable {
 struct PendingServerRequest: Identifiable, Equatable, Sendable {
     let id: String
     let rpcID: JSONValue
+    var method: String
     var kind: ServerRequestKind
     var threadID: String?
     var title: String
@@ -112,6 +114,60 @@ struct PendingServerRequest: Identifiable, Equatable, Sendable {
     var detail: String
     var questions: [InputQuestion]
     var rawParams: JSONValue
+}
+
+struct ReasoningEffortOption: Identifiable, Equatable, Sendable {
+    var id: String { effort }
+    var effort: String
+    var description: String
+}
+
+struct ModelServiceTierOption: Identifiable, Equatable, Sendable {
+    var id: String
+    var name: String
+    var description: String
+}
+
+struct CodexModelOption: Identifiable, Equatable, Sendable {
+    var id: String
+    var model: String
+    var displayName: String
+    var description: String
+    var hidden: Bool
+    var reasoningEfforts: [ReasoningEffortOption]
+    var defaultReasoningEffort: String
+    var inputModalities: [String]
+    var supportsPersonality: Bool
+    var serviceTiers: [ModelServiceTierOption]
+    var defaultServiceTier: String?
+    var isDefault: Bool
+}
+
+struct CollaborationModeOption: Identifiable, Equatable, Sendable {
+    var id: String { name }
+    var name: String
+    var mode: String?
+    var model: String?
+    var reasoningEffort: String?
+}
+
+enum LinkedFolderPhase: Equatable, Sendable {
+    case disconnected
+    case choosing
+    case linked(name: String)
+    case needsRelink(message: String)
+
+    var isLinked: Bool {
+        if case .linked = self { return true }
+        return false
+    }
+}
+
+struct ProtocolEvent: Identifiable, Equatable, Sendable {
+    let id: String
+    var method: String
+    var payload: String
+    var timestamp: Date
 }
 
 struct AccountSummary: Equatable, Sendable {

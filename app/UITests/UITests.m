@@ -27,6 +27,61 @@
     [self exerciseCodexPadExpectingWorkbench:NO];
 }
 
+- (void)testCodexPadDesktopModeCompleteSurfaceAndFocus {
+    XCUIApplication *app = [[XCUIApplication alloc] init];
+    app.launchArguments = @[@"--codexpad-demo", @"--codexpad-desktop-mode"];
+    [app launch];
+
+    XCUIElement *workspace = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.workspace"];
+    XCTAssertTrue([workspace waitForExistenceWithTimeout:15]);
+    XCTAssertTrue([app.keyboards.firstMatch waitForNonExistenceWithTimeout:5]);
+    XCTAssertTrue([app.buttons[@"codexpad.model-picker"] exists]);
+    XCTAssertTrue([app.buttons[@"codexpad.reasoning-picker"] exists]);
+    XCTAssertTrue([app.buttons[@"codexpad.collaboration-picker"] exists]);
+
+    XCUIElement *composer = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.composer"];
+    XCTAssertTrue(composer.isHittable);
+    [composer tap];
+    [composer typeText:@"Keep desktop focus"];
+    XCTAssertTrue(composer.hasFocus);
+
+    XCUIElement *send = app.buttons[@"codexpad.send"];
+    XCTAssertTrue(send.isHittable);
+    [send tap];
+    NSPredicate *focused = [NSPredicate predicateWithFormat:@"hasFocus == YES"];
+    [self expectationForPredicate:focused evaluatedWithObject:composer handler:nil];
+    [self waitForExpectationsWithTimeout:5 handler:nil];
+
+    XCUIElement *features = [self hittableButtonWithIdentifier:@"codexpad.features"
+                                                 inApplication:app];
+    XCTAssertNotNil(features);
+    [features tap];
+    XCUIElement *featureCenter = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-center"];
+    XCTAssertTrue([featureCenter waitForExistenceWithTimeout:5]);
+    XCTAssertTrue([app.staticTexts[@"125 compatible operations"] exists]);
+    XCTAssertTrue([app.staticTexts[@"3 explicit platform exceptions"] exists]);
+    [app.buttons[@"Done"] tap];
+    XCTAssertTrue([featureCenter waitForNonExistenceWithTimeout:5]);
+    [self expectationForPredicate:focused evaluatedWithObject:composer handler:nil];
+    [self waitForExpectationsWithTimeout:5 handler:nil];
+
+    XCUIElement *terminal = [self hittableButtonWithIdentifier:@"codexpad.terminal"
+                                                 inApplication:app];
+    XCTAssertNotNil(terminal);
+    [terminal tap];
+    XCUIElement *returnButton = app.buttons[@"codexpad.return-to-workspace"];
+    XCTAssertTrue([returnButton waitForExistenceWithTimeout:5]);
+    [returnButton tap];
+    XCTAssertTrue([workspace waitForExistenceWithTimeout:5]);
+    [self expectationForPredicate:focused evaluatedWithObject:composer handler:nil];
+    [self waitForExpectationsWithTimeout:5 handler:nil];
+
+    XCTAttachment *screenshot = [XCTAttachment attachmentWithScreenshot:XCUIScreen.mainScreen.screenshot];
+    screenshot.name = @"CodexPad 13-inch desktop mode";
+    screenshot.lifetime = XCTAttachmentLifetimeKeepAlways;
+    [self addAttachment:screenshot];
+}
+
 - (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench {
     XCUIApplication *app = [[XCUIApplication alloc] init];
     app.launchArguments = @[@"--codexpad-demo"];
@@ -51,10 +106,36 @@
     XCTAssertTrue([app.staticTexts[@"Make the repository update-safe"] exists]);
     XCTAssertTrue([app.buttons[@"codexpad.new-thread"] exists]);
     XCTAssertTrue([app.buttons[@"codexpad.terminal"] exists]);
+    XCTAssertTrue([app.buttons[@"codexpad.model-picker"] exists]);
+    XCTAssertFalse([app.buttons[@"codexpad.features"] exists]);
 
     XCUIElement *composer = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.composer"];
     XCTAssertTrue([composer exists]);
     XCTAssertTrue([composer isHittable]);
+
+    if (expectsWorkbench) {
+        XCUIElement *settings = app.buttons[@"codexpad.settings"];
+        XCTAssertTrue(settings.isHittable);
+        [settings tap];
+        XCTAssertTrue([app.navigationBars[@"Settings"] waitForExistenceWithTimeout:5]);
+
+        XCUIElement *showAll = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.touch-show-all"];
+        XCTAssertTrue(showAll.isHittable);
+        [showAll tap];
+
+        XCUIElement *folderButton = app.buttons[@"Choose folder in Files"];
+        XCUIElement *settingsScroller = app.collectionViews.firstMatch.exists
+            ? app.collectionViews.firstMatch
+            : app.tables.firstMatch;
+        for (NSUInteger attempt = 0; attempt < 5 && !folderButton.isHittable; attempt++) {
+            [settingsScroller swipeUp];
+        }
+        XCTAssertTrue(folderButton.isHittable);
+        [folderButton tap];
+        XCTAssertTrue([app.staticTexts[@"CodexPad Demo"] waitForExistenceWithTimeout:5]);
+        [app.buttons[@"Done"] tap];
+        XCTAssertTrue([app.buttons[@"codexpad.features"] waitForExistenceWithTimeout:5]);
+    }
 
     XCUIElement *terminalButton;
     if (expectsWorkbench) {

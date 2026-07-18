@@ -76,6 +76,12 @@ struct CodexConversationView: View {
                             QuestionRequestCard(request: request) { values in
                                 Task { await model.answer(request, values: values) }
                             }
+                        } else if request.kind == .advanced {
+                            AdvancedServerRequestCard(request: request) { result in
+                                await model.answerAdvancedRequest(request, resultText: result)
+                            } reject: {
+                                Task { await model.rejectAdvancedRequest(request) }
+                            }
                         } else {
                             ApprovalRequestCard(request: request) { choice in
                                 Task { await model.resolve(request, choice: choice) }
@@ -94,7 +100,7 @@ struct CodexConversationView: View {
                 .frame(maxWidth: 840)
                 .frame(maxWidth: .infinity)
             }
-            .scrollDismissesKeyboard(.interactively)
+            .scrollDismissesKeyboard(model.desktopModeEnabled ? .never : .interactively)
             .onChange(of: model.selectedTimeline.count) { _, _ in
                 scrollToEnd(proxy)
             }
@@ -130,6 +136,7 @@ private struct ComposerBar: View {
 
     var body: some View {
         VStack(spacing: 8) {
+            modelControls
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Ask Codex to change, explain, or verify…", text: $model.composerText, axis: .vertical)
                     .font(.body)
@@ -144,9 +151,20 @@ private struct ComposerBar: View {
                     }
                     .accessibilityLabel("Message Codex")
                     .accessibilityIdentifier("codexpad.composer")
+                    .onChange(of: isFocused) { _, focused in
+                        if focused { model.composerDidGainFocus() }
+                    }
+                    .onChange(of: model.composerFocusGeneration) { _, _ in
+                        guard model.desktopModeEnabled else { return }
+                        isFocused = true
+                    }
+                    .onChange(of: model.desktopModeEnabled) { _, enabled in
+                        if !enabled { isFocused = false }
+                    }
 
                 if model.isTurnRunning {
                     Button {
+                        if !model.desktopModeEnabled { isFocused = false }
                         Task { await model.interruptTurn() }
                     } label: {
                         Image(systemName: "stop.fill")
@@ -158,6 +176,7 @@ private struct ComposerBar: View {
                     .accessibilityLabel("Stop the current turn")
                 } else {
                     Button {
+                        if !model.desktopModeEnabled { isFocused = false }
                         Task { await model.sendComposer() }
                     } label: {
                         Image(systemName: "arrow.up")
@@ -175,7 +194,9 @@ private struct ComposerBar: View {
             HStack {
                 Label("Local iSH workspace", systemImage: "ipad")
                 Spacer()
-                Text("⌘↩ Send · ⌘. Stop")
+                Text(model.desktopModeEnabled
+                    ? "Desktop focus retained"
+                    : "Touch keyboard behavior")
             }
             .font(.caption2)
             .foregroundStyle(CodexPalette.secondaryInk)
@@ -184,6 +205,88 @@ private struct ComposerBar: View {
         .padding(.top, 12)
         .padding(.bottom, 10)
         .background(.bar)
+    }
+
+    private var modelControls: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                Menu {
+                    ForEach(model.availableModels.filter { !$0.hidden }) { option in
+                        Button {
+                            model.selectModel(option.id)
+                        } label: {
+                            if option.id == model.selectedModelID {
+                                Label(option.displayName, systemImage: "checkmark")
+                            } else {
+                                Text(option.displayName)
+                            }
+                        }
+                    }
+                    if model.availableModels.contains(where: \.hidden) {
+                        Section("Hidden provider entries") {
+                            ForEach(model.availableModels.filter(\.hidden)) { option in
+                                Button("\(option.displayName) - Hidden") {
+                                    model.selectModel(option.id)
+                                }
+                            }
+                        }
+                    }
+                } label: {
+                    Label(model.selectedModel?.displayName ?? "Model", systemImage: "cpu")
+                }
+                .buttonStyle(.bordered)
+                .disabled(model.availableModels.isEmpty)
+                .accessibilityIdentifier("codexpad.model-picker")
+
+                if let selected = model.selectedModel, !selected.reasoningEfforts.isEmpty {
+                    Menu {
+                        ForEach(selected.reasoningEfforts) { option in
+                            Button {
+                                model.selectedReasoningEffort = option.effort
+                                model.selectedCollaborationMode = nil
+                            } label: {
+                                if option.effort == model.selectedReasoningEffort {
+                                    Label(option.effort.capitalized, systemImage: "checkmark")
+                                } else {
+                                    Text(option.effort.capitalized)
+                                }
+                            }
+                        }
+                    } label: {
+                        Label(model.selectedReasoningEffort?.capitalized ?? "Reasoning", systemImage: "brain.head.profile")
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("codexpad.reasoning-picker")
+
+                    if model.showsCompleteFeatureSet, !selected.serviceTiers.isEmpty {
+                        Menu {
+                            Button("Provider default") { model.selectedServiceTier = nil }
+                            ForEach(selected.serviceTiers) { tier in
+                                Button(tier.name) { model.selectedServiceTier = tier.id }
+                            }
+                        } label: {
+                            let tierName = selected.serviceTiers.first { $0.id == model.selectedServiceTier }?.name
+                            Label(tierName ?? "Service tier", systemImage: "speedometer")
+                        }
+                        .buttonStyle(.bordered)
+                    }
+                }
+
+                if model.showsCompleteFeatureSet, !model.collaborationModes.isEmpty {
+                    Menu {
+                        Button("Standard") { model.selectedCollaborationMode = nil }
+                        ForEach(model.collaborationModes) { mode in
+                            Button(mode.name) { model.selectedCollaborationMode = mode.name }
+                        }
+                    } label: {
+                        Label(model.selectedCollaborationMode ?? "Collaboration", systemImage: "person.2")
+                    }
+                    .buttonStyle(.bordered)
+                    .accessibilityIdentifier("codexpad.collaboration-picker")
+                }
+            }
+        }
+        .controlSize(.small)
     }
 }
 

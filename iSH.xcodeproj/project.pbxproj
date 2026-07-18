@@ -32,6 +32,8 @@
 		CD1000000000000000000009 /* CodexSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2000000000000000000009 /* CodexSettingsView.swift */; };
 		CD100000000000000000000A /* CodexPadRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000A /* CodexPadRootView.swift */; };
 		CD100000000000000000000B /* CodexPadHostController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000B /* CodexPadHostController.swift */; };
+		CD100000000000000000000D /* CodexFeatureCatalog.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000D /* CodexFeatureCatalog.swift */; };
+		CD100000000000000000000E /* CodexFeatureCenterView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000E /* CodexFeatureCenterView.swift */; };
 		CD110000000000000000000C /* CodexPadLinkAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000C /* CodexPadLinkAnchor.swift */; };
 		CD120000000000000000000C /* CodexPadLinkAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000C /* CodexPadLinkAnchor.swift */; };
 		0FC2383C2991FBA6004C09EC /* mmx.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FC2383B2991FB82004C09EC /* mmx.c */; };
@@ -450,6 +452,8 @@
 		CD2000000000000000000009 /* CodexSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSettingsView.swift; sourceTree = "<group>"; };
 		CD200000000000000000000A /* CodexPadRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexPadRootView.swift; sourceTree = "<group>"; };
 		CD200000000000000000000B /* CodexPadHostController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexPadHostController.swift; sourceTree = "<group>"; };
+		CD200000000000000000000D /* CodexFeatureCatalog.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexFeatureCatalog.swift; sourceTree = "<group>"; };
+		CD200000000000000000000E /* CodexFeatureCenterView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexFeatureCenterView.swift; sourceTree = "<group>"; };
 		CD200000000000000000000C /* CodexPadLinkAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexPadLinkAnchor.swift; sourceTree = "<group>"; };
 		0FC2383B2991FB82004C09EC /* mmx.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mmx.c; sourceTree = "<group>"; };
 		408A2639236440F8008A4E81 /* iOSFS.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = iOSFS.m; sourceTree = "<group>"; };
@@ -1123,6 +1127,8 @@
 				CD2000000000000000000009 /* CodexSettingsView.swift */,
 				CD200000000000000000000A /* CodexPadRootView.swift */,
 				CD200000000000000000000B /* CodexPadHostController.swift */,
+				CD200000000000000000000D /* CodexFeatureCatalog.swift */,
+				CD200000000000000000000E /* CodexFeatureCenterView.swift */,
 				CD200000000000000000000C /* CodexPadLinkAnchor.swift */,
 			);
 			path = CodexPad;
@@ -2239,6 +2245,8 @@
 				CD1000000000000000000009 /* CodexSettingsView.swift in Sources */,
 				CD100000000000000000000A /* CodexPadRootView.swift in Sources */,
 				CD100000000000000000000B /* CodexPadHostController.swift in Sources */,
+				CD100000000000000000000D /* CodexFeatureCatalog.swift in Sources */,
+				CD100000000000000000000E /* CodexFeatureCenterView.swift in Sources */,
 				BB28C79226896B1F00BDC834 /* AboutAppearanceViewController.m in Sources */,
 				BB28C79326896B1F00BDC834 /* AltIconViewController.m in Sources */,
 				491B31E62883BF22008EEFB0 /* ThemeViewController.m in Sources */,

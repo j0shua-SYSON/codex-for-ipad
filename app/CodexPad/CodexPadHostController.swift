@@ -110,6 +110,9 @@ public final class CodexPadHostViewController: UIViewController {
             deactivateTerminalInput()
             terminalViewController.view.accessibilityViewIsModal = false
             workspaceController?.view.accessibilityViewIsModal = true
+            DispatchQueue.main.async { [weak self] in
+                self?.model.workspaceDidReturnFromTerminal()
+            }
         }
         setNeedsStatusBarAppearanceUpdate()
     }

@@ -2,7 +2,7 @@
 
 CodexPad runs the open-source Codex agent and its Linux tool environment locally on iPadOS. Provider-backed model inference remains a network operation. The app combines three layers in one process:
 
-1. **Native workspace** — an adaptive SwiftUI interface for threads, conversation items, plans, approvals, diffs, files, settings, and a recoverable terminal.
+1. **Native workspace** — an adaptive SwiftUI interface for threads, conversation items, plans, approvals, diffs, files, dynamic models, settings, the complete protocol Feature Center, and a recoverable terminal.
 2. **Codex app-server** — the upstream Rust `codex-app-server`, cross-compiled as a static 32-bit x86 musl executable. The native client uses the upstream v2 JSON-RPC protocol over an app-local WebSocket.
 3. **iSH runtime** — iSH's user-mode x86 emulator, syscall translation, fakefs filesystem, networking, PTYs, and Files integration. It boots a pinned Alpine x86 root containing Codex and essential development tools.
 
@@ -39,6 +39,8 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 - Keep repositories and Codex state inside the selected iSH root.
 - Start threads with `danger-full-access` inside the guest, because iSH cannot implement Codex's desktop Linux seccomp/namespace sandbox. Treat the iPad application container as the outer OS boundary and keep approvals `on-request`.
 - Route command, file-change, permission, and user-input requests to native approval surfaces.
+- Route every compatible client method through either a purpose-built control or the categorized Advanced request surface; exact-set CI fails on unclassified upstream additions.
+- Use iSH's `ios` filesystem mount for Files-selected folders so its existing security-scoped bookmark lifecycle remains the single persistence mechanism.
 - Keep the terminal available as a recovery tool; it is not the primary UI.
 
 ## Honest platform limits

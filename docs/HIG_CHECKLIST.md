@@ -15,6 +15,8 @@ This checklist is a release gate for CodexPad.
 - Preserve standard shortcuts; provide discoverable commands for new thread, send, interrupt, search, inspector, and terminal.
 - Use system controls so pointer effects and focus behavior are automatic.
 - Keep interactive targets at least 44 by 44 points without inflating their visible artwork.
+- In desktop mode, retain composer focus after the user engages it and after transient actions or sheets; never summon the software keyboard automatically at launch.
+- In touch mode, use interactive keyboard dismissal and keep advanced density optional through the Show all Codex features setting.
 
 ## Accessibility
 
