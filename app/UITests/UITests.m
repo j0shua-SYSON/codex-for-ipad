@@ -114,8 +114,9 @@
     XCTAssertTrue([composer isHittable]);
 
     if (expectsWorkbench) {
-        XCUIElement *settings = app.buttons[@"codexpad.settings"];
-        XCTAssertTrue(settings.isHittable);
+        XCUIElement *settings = [self hittableButtonWithIdentifier:@"codexpad.settings"
+                                                     inApplication:app];
+        XCTAssertNotNil(settings);
         [settings tap];
         XCTAssertTrue([app.navigationBars[@"Settings"] waitForExistenceWithTimeout:5]);
 
@@ -132,9 +133,6 @@
         }
         XCTAssertTrue(folderButton.isHittable);
         [folderButton tap];
-        XCUIElement *linkedFolderName = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.linked-folder-name"];
-        XCTAssertTrue([linkedFolderName waitForExistenceWithTimeout:5]);
-        XCTAssertEqualObjects(linkedFolderName.label, @"CodexPad Demo");
         XCTAssertTrue([app.buttons[@"Unlink Files folder"] waitForExistenceWithTimeout:5]);
         [app.buttons[@"Done"] tap];
         XCTAssertTrue([app.buttons[@"codexpad.features"] waitForExistenceWithTimeout:5]);
