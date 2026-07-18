@@ -141,6 +141,7 @@ private struct ComposerBar: View {
                 TextField("Ask Codex to change, explain, or verify…", text: $model.composerText, axis: .vertical)
                     .font(.body)
                     .lineLimit(1...7)
+                    .frame(minWidth: 80, maxWidth: .infinity)
                     .focused($isFocused)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 11)
