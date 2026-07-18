@@ -22,8 +22,11 @@ struct CodexPadRootView: View {
         .accessibilityIdentifier("codexpad.workspace")
         .tint(CodexPalette.cobalt)
         .background(CodexPalette.canvas)
-        .sheet(isPresented: $model.showsSettings) {
+        .sheet(isPresented: $model.showsSettings, onDismiss: model.requestComposerFocus) {
             CodexSettingsView(model: model)
+        }
+        .sheet(isPresented: $model.showsFeatureCenter, onDismiss: model.requestComposerFocus) {
+            CodexFeatureCenterView(model: model)
         }
         .sheet(isPresented: $showsThreadBrowser) {
             NavigationStack {
@@ -92,6 +95,29 @@ struct CodexPadRootView: View {
                 }
 
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Menu {
+                        Toggle("Desktop mode", isOn: $model.desktopModeEnabled)
+                        if !model.desktopModeEnabled {
+                            Toggle("Show all Codex features", isOn: $model.showAllFeaturesInTouchMode)
+                        }
+                    } label: {
+                        Label(
+                            model.desktopModeEnabled ? "Desktop mode" : "Touch mode",
+                            systemImage: model.desktopModeEnabled ? "cursorarrow.rays" : "hand.tap"
+                        )
+                    }
+                    .accessibilityIdentifier("codexpad.input-mode")
+
+                    if model.showsCompleteFeatureSet {
+                        Button {
+                            model.showsFeatureCenter = true
+                        } label: {
+                            Label("All Codex features", systemImage: "square.grid.3x3")
+                        }
+                        .accessibilityIdentifier("codexpad.features")
+                        .keyboardShortcut(",", modifiers: [.command, .shift])
+                    }
+
                     Button {
                         Task { await model.createThread() }
                     } label: {
@@ -158,6 +184,7 @@ struct CodexPadRootView: View {
                 } label: {
                     Label(model.account.displayName, systemImage: model.account.isAuthenticated ? "person.crop.circle.fill" : "person.crop.circle.badge.questionmark")
                 }
+                .accessibilityIdentifier("codexpad.settings")
             }
         }
         .listStyle(.sidebar)

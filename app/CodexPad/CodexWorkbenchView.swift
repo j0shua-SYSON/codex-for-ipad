@@ -68,23 +68,42 @@ struct CodexWorkbenchView: View {
     }
 
     private var changesView: some View {
-        Group {
-            if model.currentDiff.isEmpty {
-                ContentUnavailableView(
-                    "No changes yet",
-                    systemImage: "doc.badge.gearshape",
-                    description: Text("The current turn’s patch appears here as Codex edits files.")
-                )
-            } else {
-                ScrollView([.horizontal, .vertical]) {
-                    Text(model.currentDiff)
-                        .font(.callout.monospaced())
-                        .foregroundStyle(CodexPalette.ink)
-                        .textSelection(.enabled)
-                        .padding(20)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        VStack(spacing: 0) {
+            HStack {
+                Text("Working tree")
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Button {
+                    Task { await model.startReview() }
+                } label: {
+                    Label("Review changes", systemImage: "checkmark.bubble")
                 }
-                .accessibilityLabel("Current file changes")
+                .buttonStyle(.bordered)
+                .disabled(model.selectedThreadID == nil || model.isTurnRunning)
+                .accessibilityIdentifier("codexpad.review")
+            }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 8)
+            .background(CodexPalette.surface)
+
+            Group {
+                if model.currentDiff.isEmpty {
+                    ContentUnavailableView(
+                        "No changes yet",
+                        systemImage: "doc.badge.gearshape",
+                        description: Text("The current turn’s patch appears here as Codex edits files.")
+                    )
+                } else {
+                    ScrollView([.horizontal, .vertical]) {
+                        Text(model.currentDiff)
+                            .font(.callout.monospaced())
+                            .foregroundStyle(CodexPalette.ink)
+                            .textSelection(.enabled)
+                            .padding(20)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .accessibilityLabel("Current file changes")
+                }
             }
         }
     }
