@@ -143,7 +143,9 @@
             XCUIElement *sidebarToggle = [self hittableButtonWithLabelContaining:@"sidebar"
                                                                     inApplication:app];
             XCTAssertNotNil(sidebarToggle);
-            [sidebarToggle tap];
+            if ([sidebarToggle.label localizedCaseInsensitiveContainsString:@"show"]) {
+                [sidebarToggle tap];
+            }
             [NSThread sleepForTimeInterval:0.8];
             [[app coordinateWithNormalizedOffset:CGVectorMake(0.20, 0.96)] tap];
             openedSettingsFromSidebar = YES;
