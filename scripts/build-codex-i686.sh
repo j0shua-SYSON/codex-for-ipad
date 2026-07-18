@@ -11,10 +11,10 @@ git apply --check "$compatibility_patch"
 git apply "$compatibility_patch"
 install -m 0644 \
   "$compatibility_sources/service_unavailable.rs" \
-  ../code-mode/src/service_unavailable.rs
+  code-mode/src/service_unavailable.rs
 install -m 0644 \
   "$compatibility_sources/v8_init_unavailable.rs" \
-  ../code-mode/src/v8_init_unavailable.rs
+  code-mode/src/v8_init_unavailable.rs
 
 cargo zigbuild \
   --locked \
