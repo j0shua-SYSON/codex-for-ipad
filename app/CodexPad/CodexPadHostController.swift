@@ -20,7 +20,7 @@ public final class CodexPadHostViewController: UIViewController {
         fatalError("init(coder:) is unavailable")
     }
 
-    override func viewDidLoad() {
+    public override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
 
@@ -59,6 +59,7 @@ public final class CodexPadHostViewController: UIViewController {
         configuration.cornerStyle = .capsule
         returnButton.configuration = configuration
         returnButton.addTarget(self, action: #selector(returnToWorkspace), for: .touchUpInside)
+        returnButton.accessibilityIdentifier = "codexpad.return-to-workspace"
         returnButton.translatesAutoresizingMaskIntoConstraints = false
         returnButton.isHidden = true
         view.addSubview(returnButton)
@@ -69,8 +70,8 @@ public final class CodexPadHostViewController: UIViewController {
         ])
     }
 
-    override var preferredStatusBarStyle: UIStatusBarStyle { .default }
-    override var prefersStatusBarHidden: Bool { false }
+    public override var preferredStatusBarStyle: UIStatusBarStyle { .default }
+    public override var prefersStatusBarHidden: Bool { false }
 
     @objc private func returnToWorkspace() {
         setTerminalVisible(false)

@@ -337,6 +337,16 @@ final class CodexWorkspaceModel: ObservableObject {
     }
 
     func resolve(_ request: PendingServerRequest, choice: ApprovalChoice) async {
+        if request.kind == .unsupported {
+            do {
+                try await rpc.respondUnsupported(to: request.rpcID, method: "unknown")
+                pendingRequests.removeAll { $0.id == request.id }
+            } catch {
+                report(error, context: "Could not dismiss the unsupported request")
+            }
+            return
+        }
+
         let result: JSONValue
         switch request.kind {
         case .command, .fileChange:
@@ -362,8 +372,10 @@ final class CodexWorkspaceModel: ObservableObject {
                 "content": .null,
                 "_meta": .null
             ])
-        case .question, .unsupported:
+        case .question:
             result = .object([:])
+        case .unsupported:
+            return
         }
 
         do {
@@ -534,8 +546,15 @@ final class CodexWorkspaceModel: ObservableObject {
             kind = .elicitation
             title = "A connected tool needs input"
         default:
-            kind = .unsupported
-            title = "Codex is waiting"
+            appendRuntime("Rejected unsupported server request: \(method)")
+            Task {
+                do {
+                    try await rpc.respondUnsupported(to: id, method: method)
+                } catch {
+                    report(error, context: "Could not reject unsupported server request")
+                }
+            }
+            return
         }
 
         let questions = params["questions"]?.arrayValue?.compactMap { raw -> InputQuestion? in
