@@ -139,11 +139,10 @@
                                                                     inApplication:app];
             XCTAssertNotNil(sidebarToggle);
             [sidebarToggle tap];
-            XCUIElement *settingsCandidate = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.settings"];
+            NSPredicate *accountSettingsLabel = [NSPredicate predicateWithFormat:@"label CONTAINS[c] %@", @"Account settings"];
+            XCUIElement *settingsCandidate = [app.buttons matchingPredicate:accountSettingsLabel].firstMatch;
             XCTAssertTrue([settingsCandidate waitForExistenceWithTimeout:5]);
-            settings = settingsCandidate.isHittable
-                ? settingsCandidate
-                : [self hittableButtonWithIdentifier:@"codexpad.settings" inApplication:app];
+            settings = settingsCandidate;
         }
         XCTAssertNotNil(settings);
         [settings tap];
