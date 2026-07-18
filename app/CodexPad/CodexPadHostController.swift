@@ -68,6 +68,8 @@ public final class CodexPadHostViewController: UIViewController {
             returnButton.trailingAnchor.constraint(equalTo: view.safeAreaLayoutGuide.trailingAnchor, constant: -12),
             returnButton.heightAnchor.constraint(greaterThanOrEqualToConstant: 44)
         ])
+
+        setTerminalVisible(false)
     }
 
     public override var preferredStatusBarStyle: UIStatusBarStyle { .default }
@@ -78,12 +80,20 @@ public final class CodexPadHostViewController: UIViewController {
     }
 
     private func setTerminalVisible(_ visible: Bool) {
+        terminalViewController.view.isHidden = !visible
+        terminalViewController.view.isUserInteractionEnabled = visible
+        terminalViewController.view.accessibilityElementsHidden = !visible
         workspaceController?.view.isHidden = visible
+        workspaceController?.view.isUserInteractionEnabled = !visible
+        workspaceController?.view.accessibilityElementsHidden = visible
         returnButton.isHidden = !visible
         if visible {
             view.bringSubviewToFront(returnButton)
             terminalViewController.view.accessibilityViewIsModal = true
+            workspaceController?.view.accessibilityViewIsModal = false
         } else {
+            terminalViewController.view.endEditing(true)
+            terminalViewController.view.accessibilityViewIsModal = false
             workspaceController?.view.accessibilityViewIsModal = true
         }
         setNeedsStatusBarAppearanceUpdate()
