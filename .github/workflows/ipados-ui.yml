@@ -35,7 +35,7 @@ jobs:
             device_hint: 13-inch
             content_size: large
             appearance: light
-            test_method: testCodexPadStandardWorkspaceAndTerminalRecovery
+            test_method: testCodexPadDesktopModeCompleteSurfaceAndFocus
           - profile: 11-inch-standard
             device_hint: 11-inch
             content_size: large

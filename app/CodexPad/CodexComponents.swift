@@ -395,3 +395,91 @@ struct QuestionRequestCard: View {
         )
     }
 }
+
+struct AdvancedServerRequestCard: View {
+    let request: PendingServerRequest
+    let submit: (String) async -> String?
+    let reject: () -> Void
+
+    @State private var resultText = ""
+    @State private var validationError: String?
+    @State private var isSubmitting = false
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label(request.title, systemImage: "curlybraces.square")
+                .font(.headline)
+                .foregroundStyle(CodexPalette.cobalt)
+            Text(request.method)
+                .font(.caption.monospaced())
+                .foregroundStyle(CodexPalette.secondaryInk)
+                .textSelection(.enabled)
+            Text(request.message)
+                .font(.body)
+            DisclosureGroup("Request parameters") {
+                Text(request.rawParams.prettyPrinted)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 6)
+            }
+            TextEditor(text: $resultText)
+                .font(.callout.monospaced())
+                .frame(minHeight: 130)
+                .padding(8)
+                .background(CodexPalette.canvas, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
+                .overlay {
+                    RoundedRectangle(cornerRadius: 11, style: .continuous)
+                        .stroke(CodexPalette.line, lineWidth: 0.5)
+                }
+                .accessibilityLabel("JSON response for \(request.method)")
+
+            if let validationError {
+                Label(validationError, systemImage: "exclamationmark.triangle")
+                    .font(.caption)
+                    .foregroundStyle(CodexPalette.danger)
+            }
+
+            ViewThatFits(in: .horizontal) {
+                HStack { actionButtons }
+                VStack(alignment: .leading) { actionButtons }
+            }
+        }
+        .codexPanel()
+        .task {
+            if request.method == "item/tool/call" {
+                resultText = JSONValue.object([
+                    "contentItems": .array([.object([
+                        "type": .string("inputText"),
+                        "text": .string("")
+                    ])]),
+                    "success": .bool(true)
+                ]).prettyPrinted
+            } else {
+                resultText = "{}"
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var actionButtons: some View {
+        Button {
+            isSubmitting = true
+            validationError = nil
+            Task {
+                validationError = await submit(resultText)
+                isSubmitting = false
+            }
+        } label: {
+            if isSubmitting {
+                ProgressView().controlSize(.small)
+            } else {
+                Text("Send JSON response")
+            }
+        }
+        .buttonStyle(.borderedProminent)
+        .disabled(isSubmitting || resultText.isEmpty)
+        Button("Reject request", role: .destructive, action: reject)
+            .buttonStyle(.bordered)
+    }
+}

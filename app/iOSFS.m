@@ -25,6 +25,23 @@ const NSFileCoordinatorWritingOptions NSFileCoordinatorWritingForCreating = NSFi
 
 @end
 
+static UIViewController *topPresentationController(UIViewController *controller) {
+    while (controller.presentedViewController != nil) {
+        controller = controller.presentedViewController;
+    }
+    if ([controller isKindOfClass:UINavigationController.class]) {
+        UIViewController *visible = ((UINavigationController *) controller).visibleViewController;
+        if (visible != nil && visible != controller)
+            return topPresentationController(visible);
+    }
+    if ([controller isKindOfClass:UITabBarController.class]) {
+        UIViewController *selected = ((UITabBarController *) controller).selectedViewController;
+        if (selected != nil && selected != controller)
+            return topPresentationController(selected);
+    }
+    return controller;
+}
+
 @implementation DirectoryPicker
 
 - (instancetype)init {
@@ -63,7 +80,9 @@ const NSFileCoordinatorWritingOptions NSFileCoordinatorWritingForCreating = NSFi
             picker.allowsMultipleSelection = YES;
         }
         picker.presentationController.delegate = self;
-        [terminalViewController presentViewController:picker animated:true completion:nil];
+        UIViewController *root = terminalViewController.view.window.rootViewController;
+        UIViewController *presenter = topPresentationController(root ?: terminalViewController);
+        [presenter presentViewController:picker animated:true completion:nil];
     });
 
     lock(&_lock);
@@ -98,6 +117,8 @@ static NSURL *url_for_mount(struct mount *mount) {
 }
 
 static NSString *const kMountBookmarks = @"iOS Mount Bookmarks";
+static NSString *const kCodexPadMountPoint = @"/root/workspaces/codexpad-files";
+static NSString *const kCodexPadFolderDisplayName = @"CodexPadLinkedFolderDisplayName";
 #define BOOKMARK_PATH_ENCODING NSISOLatin1StringEncoding
 // To avoid locking issues, only access from the main thread
 static NSMutableDictionary<NSString *, NSData *> *ios_mount_bookmarks;
@@ -166,6 +187,8 @@ static int iosfs_mount(struct mount *mount) {
         if (bookmark != nil) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 ios_mount_bookmarks[path] = bookmark;
+                if ([path isEqualToString:kCodexPadMountPoint])
+                    [NSUserDefaults.standardUserDefaults setObject:url.lastPathComponent forKey:kCodexPadFolderDisplayName];
                 sync_bookmarks();
             });
         }
@@ -178,6 +201,8 @@ static int iosfs_umount(struct mount *mount) {
     NSString *path = [NSString stringWithCString:mount->point encoding:BOOKMARK_PATH_ENCODING];
     dispatch_async(dispatch_get_main_queue(), ^{
         [ios_mount_bookmarks removeObjectForKey:path];
+        if ([path isEqualToString:kCodexPadMountPoint])
+            [NSUserDefaults.standardUserDefaults removeObjectForKey:kCodexPadFolderDisplayName];
         sync_bookmarks();
     });
     NSURL *url = url_for_mount(mount);

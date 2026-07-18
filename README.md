@@ -19,7 +19,13 @@ This is an independent community port, not an official OpenAI or iSH app. It is 
 
 ## Native workspace
 
-The interface uses a native `NavigationSplitView` for recent threads and the semantic activity timeline, plus a workbench inspector for plans, diffs, files, and runtime diagnostics. It includes native command/file/permission approvals, `request_user_input`, account sign-in, keyboard shortcuts, pointer-friendly system controls, Dynamic Type, VoiceOver labels, dark mode, and compact-width adaptation. At accessibility text sizes or constrained widths, both supporting panes yield to a full-width conversation while the Threads toolbar action keeps navigation available in a native sheet. Hosted UI gates exercise 13-inch and 11-inch iPad Pro layouts at standard text size plus an iPad mini at an accessibility text size in Dark Mode.
+The interface uses a native `NavigationSplitView` for recent threads and the semantic activity timeline, plus a workbench inspector for plans, diffs, files, and runtime diagnostics. It includes native command/file/permission approvals, `request_user_input`, account sign-in, review controls, keyboard shortcuts, pointer-friendly system controls, Dynamic Type, VoiceOver labels, dark mode, and compact-width adaptation. The model picker is populated by paginating upstream `model/list`, including provider-hidden entries, supported reasoning efforts, service tiers, modalities, and collaboration presets instead of hard-coding model names.
+
+Choosing a folder in Settings invokes iSH's native `ios` filesystem driver. The Files picker grants a security-scoped bookmark, iSH mounts that folder at `/root/workspaces/codexpad-files`, and CodexPad immediately uses the guest mount as the current workspace. iSH restores the same mount on later launches.
+
+Desktop mode always exposes the complete Codex surface and keeps composer focus after the first pointer click across sends, stops, navigation, sheets, and terminal recovery. Touch mode uses interactive keyboard dismissal and a cleaner essential surface; **Show all Codex features** reveals the same complete controls while preserving touch behavior. The searchable Feature Center routes all 129 pinned client methods: common workflows have purpose-built controls and every compatible long-tail or experimental method has a structured Advanced request/result surface. See [the exact feature coverage contract](docs/FEATURE_COVERAGE.md).
+
+At accessibility text sizes or constrained widths, both supporting panes yield to a full-width conversation while the Threads toolbar action keeps navigation available in a native sheet. Hosted UI gates exercise 13-inch and 11-inch iPad Pro layouts at standard text size plus an iPad mini at an accessibility text size in Dark Mode.
 
 See [the HIG release checklist](docs/HIG_CHECKLIST.md) and [the architecture](docs/ARCHITECTURE.md) for the design and platform boundaries.
 
@@ -40,7 +46,7 @@ For a Mac build, clone with submodules and open `iSH.xcodeproj`. Pass `CODEXPAD_
 
 ## Clean upstream updates
 
-The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patch, builds the complete i686 runtime and iPad app, and only then opens a pin-update pull request. Additive protocol fields are decoded tolerantly; breaking schema or target changes fail the gate instead of silently shipping a partial port.
+The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patch, builds the complete i686 runtime and iPad app, and only then opens a pin-update pull request. The parity gate compares all stable and experimental client methods, server requests, and notifications with the GUI catalog; a new operation cannot merge until it has a deliberate native, Advanced, automatic, or incompatible route. Additive payload fields are decoded tolerantly, while breaking schema or target changes fail instead of silently shipping a partial port.
 
 Platform-specific code is concentrated in `app/CodexPad`, `runtime`, `patches`, and the build workflows, with small host hooks in `AppGroup.m`, `SceneDelegate.m`, `TerminalViewController`, and the Xcode project. The upstream Codex checkout is never edited in place, and the iSH changes remain deliberately narrow and reviewable.
 
