@@ -8,6 +8,10 @@ public final class CodexPadHostViewController: UIViewController {
     private let model = CodexWorkspaceModel()
     private var workspaceController: UIHostingController<CodexPadRootView>?
     private let returnButton = UIButton(type: .system)
+    private var isTerminalVisible = false
+
+    private static let activateTerminalInputSelector = NSSelectorFromString("codexPadActivateInput")
+    private static let deactivateTerminalInputSelector = NSSelectorFromString("codexPadDeactivateInput")
 
     @objc(initWithTerminalViewController:)
     public init(terminalViewController: UIViewController) {
@@ -72,6 +76,12 @@ public final class CodexPadHostViewController: UIViewController {
         setTerminalVisible(false)
     }
 
+    public override func viewDidAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        guard !isTerminalVisible else { return }
+        deactivateTerminalInput()
+    }
+
     public override var preferredStatusBarStyle: UIStatusBarStyle { .default }
     public override var prefersStatusBarHidden: Bool { false }
 
@@ -80,6 +90,7 @@ public final class CodexPadHostViewController: UIViewController {
     }
 
     private func setTerminalVisible(_ visible: Bool) {
+        isTerminalVisible = visible
         terminalViewController.view.isHidden = !visible
         terminalViewController.view.isUserInteractionEnabled = visible
         terminalViewController.view.accessibilityElementsHidden = !visible
@@ -91,11 +102,26 @@ public final class CodexPadHostViewController: UIViewController {
             view.bringSubviewToFront(returnButton)
             terminalViewController.view.accessibilityViewIsModal = true
             workspaceController?.view.accessibilityViewIsModal = false
+            _ = terminalViewController.perform(Self.activateTerminalInputSelector)
         } else {
-            terminalViewController.view.endEditing(true)
+            deactivateTerminalInput()
             terminalViewController.view.accessibilityViewIsModal = false
             workspaceController?.view.accessibilityViewIsModal = true
         }
         setNeedsStatusBarAppearanceUpdate()
+    }
+
+    private func deactivateTerminalInput() {
+        _ = terminalViewController.perform(Self.deactivateTerminalInputSelector)
+        view.endEditing(true)
+
+        // iSH requests focus while its storyboard is loading. Repeat once after
+        // UIKit has made the host window key so that focus cannot be restored
+        // behind the native workspace.
+        DispatchQueue.main.async { [weak self] in
+            guard let self, !self.isTerminalVisible else { return }
+            _ = self.terminalViewController.perform(Self.deactivateTerminalInputSelector)
+            self.view.endEditing(true)
+        }
     }
 }
