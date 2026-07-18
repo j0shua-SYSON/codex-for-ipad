@@ -32,6 +32,8 @@
 		CD1000000000000000000009 /* CodexSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2000000000000000000009 /* CodexSettingsView.swift */; };
 		CD100000000000000000000A /* CodexPadRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000A /* CodexPadRootView.swift */; };
 		CD100000000000000000000B /* CodexPadHostController.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000B /* CodexPadHostController.swift */; };
+		CD110000000000000000000C /* CodexPadLinkAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000C /* CodexPadLinkAnchor.swift */; };
+		CD120000000000000000000C /* CodexPadLinkAnchor.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000C /* CodexPadLinkAnchor.swift */; };
 		0FC2383C2991FBA6004C09EC /* mmx.c in Sources */ = {isa = PBXBuildFile; fileRef = 0FC2383B2991FB82004C09EC /* mmx.c */; };
 		491B31E62883BF22008EEFB0 /* ThemeViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 491B31E52883BF22008EEFB0 /* ThemeViewController.m */; };
 		49302D8E277669D300C9885A /* ish.c in Sources */ = {isa = PBXBuildFile; fileRef = 49302D8D277669D300C9885A /* ish.c */; };
@@ -448,6 +450,7 @@
 		CD2000000000000000000009 /* CodexSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexSettingsView.swift; sourceTree = "<group>"; };
 		CD200000000000000000000A /* CodexPadRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexPadRootView.swift; sourceTree = "<group>"; };
 		CD200000000000000000000B /* CodexPadHostController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexPadHostController.swift; sourceTree = "<group>"; };
+		CD200000000000000000000C /* CodexPadLinkAnchor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexPadLinkAnchor.swift; sourceTree = "<group>"; };
 		0FC2383B2991FB82004C09EC /* mmx.c */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.c; path = mmx.c; sourceTree = "<group>"; };
 		408A2639236440F8008A4E81 /* iOSFS.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = iOSFS.m; sourceTree = "<group>"; };
 		408A263B23644102008A4E81 /* iOSFS.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = iOSFS.h; sourceTree = "<group>"; };
@@ -1120,6 +1123,7 @@
 				CD2000000000000000000009 /* CodexSettingsView.swift */,
 				CD200000000000000000000A /* CodexPadRootView.swift */,
 				CD200000000000000000000B /* CodexPadHostController.swift */,
+				CD200000000000000000000C /* CodexPadLinkAnchor.swift */,
 			);
 			path = CodexPad;
 			sourceTree = "<group>";
@@ -2160,6 +2164,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CD120000000000000000000C /* CodexPadLinkAnchor.swift in Sources */,
 				BBF06F6C2CC4C134009F5DB5 /* fchdir.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -2168,6 +2173,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CD110000000000000000000C /* CodexPadLinkAnchor.swift in Sources */,
 				BB28C7BB268975AE00BDC834 /* LocationDevice.m in Sources */,
 				BB28C7BA268975AA00BDC834 /* iOSFS.m in Sources */,
 				BB28C7BC268975B000BDC834 /* PasteboardDevice.m in Sources */,
