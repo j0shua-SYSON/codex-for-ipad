@@ -1,5 +1,5 @@
 SDKROOT = iphoneos
-TARGETED_DEVICE_FAMILY = 1,2 // iPhone, iPad
+TARGETED_DEVICE_FAMILY = 2 // iPad
 SUPPORTED_PLATFORMS = iphonesimulator iphoneos
 
 LD_RUNPATH_SEARCH_PATHS = $(inherited) @executable_path/Frameworks

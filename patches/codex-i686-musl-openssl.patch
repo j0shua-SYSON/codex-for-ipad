@@ -1,0 +1,14 @@
+diff --git a/codex-rs/core/Cargo.toml b/codex-rs/core/Cargo.toml
+index 23b5774f5..d17ec6172 100644
+--- a/codex-rs/core/Cargo.toml
++++ b/codex-rs/core/Cargo.toml
+@@ -126,5 +126,9 @@ which = { workspace = true }
+ whoami = { workspace = true }
+ 
++# Build OpenSSL from source for the 32-bit musl guest used by iSH.
++[target.i686-unknown-linux-musl.dependencies]
++openssl-sys = { workspace = true, features = ["vendored"] }
++
+ # Build OpenSSL from source for musl builds.
+ [target.x86_64-unknown-linux-musl.dependencies]
+ openssl-sys = { workspace = true, features = ["vendored"] }
