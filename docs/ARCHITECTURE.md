@@ -29,7 +29,7 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 - Rust: `1.95.0`
 - Guest target: `i686-unknown-linux-musl`
 
-Pins are updated deliberately after both hosted compatibility and iPad builds pass.
+`Dependencies/upstreams.json` is the single source of truth for these pins. A scheduled workflow discovers new Codex commits, reads their required Rust toolchain, runs the complete i686-musl compatibility build, and opens an update pull request only after that gate passes. Runtime code never assumes a particular Codex version string; protocol capability negotiation and tolerant decoding handle additive v2 changes.
 
 ## Runtime contract
 
