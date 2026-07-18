@@ -131,23 +131,26 @@
     if (expandedWorkspace) {
         XCUIElement *settings = [self hittableButtonWithIdentifier:@"codexpad.settings"
                                                      inApplication:app];
+        BOOL openedSettingsFromSidebar = NO;
         if (settings == nil) {
             // At 11-inch portrait widths, NavigationSplitView correctly
             // collapses its sidebar. Exercise the visible system sidebar
-            // control before opening the bottom-pinned account settings.
+            // control before opening the bottom-pinned account settings. SwiftUI
+            // does not publish that row as a stable XCUIElement in this compact
+            // presentation, so tap its verified visual position within the
+            // sidebar and assert the resulting Settings destination instead.
             XCUIElement *sidebarToggle = [self hittableButtonWithLabelContaining:@"sidebar"
                                                                     inApplication:app];
             XCTAssertNotNil(sidebarToggle);
             [sidebarToggle tap];
-            NSPredicate *accountSettingsLabel = [NSPredicate predicateWithFormat:@"label CONTAINS[c] %@", @"joshua@example.com"];
-            XCUIElement *settingsCandidate = [[app descendantsMatchingType:XCUIElementTypeAny]
-                matchingPredicate:accountSettingsLabel].firstMatch;
-            XCTAssertTrue([settingsCandidate waitForExistenceWithTimeout:5]);
-            XCTAssertTrue(settingsCandidate.isHittable);
-            settings = settingsCandidate;
+            XCTAssertTrue([sidebar waitForExistenceWithTimeout:5]);
+            XCTAssertTrue(sidebar.isHittable);
+            [[sidebar coordinateWithNormalizedOffset:CGVectorMake(0.5, 0.97)] tap];
+            openedSettingsFromSidebar = YES;
+        } else {
+            [settings tap];
         }
-        XCTAssertNotNil(settings);
-        [settings tap];
+        XCTAssertTrue(openedSettingsFromSidebar || settings != nil);
         XCTAssertTrue([app.navigationBars[@"Settings"] waitForExistenceWithTimeout:5]);
 
         XCUIElement *showAll = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.touch-show-all"];
