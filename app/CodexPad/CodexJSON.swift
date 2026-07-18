@@ -104,7 +104,33 @@ enum JSONValue: Codable, Equatable, Sendable {
               let string = String(data: data, encoding: .utf8) else {
             return ""
         }
-        return string
+        return Self.normalizingObjectColons(in: string)
+    }
+
+    private static func normalizingObjectColons(in string: String) -> String {
+        var result = ""
+        var isInsideString = false
+        var isEscaped = false
+
+        for character in string {
+            if character == ":" && !isInsideString {
+                while result.last == " " || result.last == "\t" {
+                    result.removeLast()
+                }
+                result.append(character)
+                continue
+            }
+
+            result.append(character)
+            if isEscaped {
+                isEscaped = false
+            } else if character == "\\" && isInsideString {
+                isEscaped = true
+            } else if character == "\"" {
+                isInsideString.toggle()
+            }
+        }
+        return result
     }
 }
 

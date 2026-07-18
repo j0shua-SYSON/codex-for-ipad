@@ -180,6 +180,19 @@
         XCUIElement *featureSummary = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-summary"];
         XCTAssertTrue([featureSummary waitForExistenceWithTimeout:5]);
         XCTAssertTrue([featureSummary.label containsString:@"125 compatible operations"]);
+
+        XCUIElement *startFeature = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature.thread/start"];
+        XCTAssertTrue([startFeature waitForExistenceWithTimeout:5]);
+        XCTAssertTrue(startFeature.isHittable);
+        [startFeature tap];
+        XCUIElement *featureRun = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-run"];
+        XCTAssertTrue([featureRun waitForExistenceWithTimeout:5]);
+        XCUIElement *featureScroller = app.scrollViews.firstMatch;
+        for (NSUInteger attempt = 0; attempt < 4 && !featureRun.isHittable; attempt++) {
+            [featureScroller swipeUp];
+        }
+        XCTAssertTrue(featureRun.isHittable);
+
         XCUIElement *featureDone = [self hittableButtonWithLabelContaining:@"Done"
                                                               inApplication:app];
         XCTAssertNotNil(featureDone);
