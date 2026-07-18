@@ -139,9 +139,11 @@
                                                                     inApplication:app];
             XCTAssertNotNil(sidebarToggle);
             [sidebarToggle tap];
-            NSPredicate *accountSettingsLabel = [NSPredicate predicateWithFormat:@"label CONTAINS[c] %@", @"Account settings"];
-            XCUIElement *settingsCandidate = [app.buttons matchingPredicate:accountSettingsLabel].firstMatch;
+            NSPredicate *accountSettingsLabel = [NSPredicate predicateWithFormat:@"label CONTAINS[c] %@", @"joshua@example.com"];
+            XCUIElement *settingsCandidate = [[app descendantsMatchingType:XCUIElementTypeAny]
+                matchingPredicate:accountSettingsLabel].firstMatch;
             XCTAssertTrue([settingsCandidate waitForExistenceWithTimeout:5]);
+            XCTAssertTrue(settingsCandidate.isHittable);
             settings = settingsCandidate;
         }
         XCTAssertNotNil(settings);
