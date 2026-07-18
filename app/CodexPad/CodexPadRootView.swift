@@ -149,9 +149,9 @@ struct CodexPadRootView: View {
     }
 
     private var sidebar: some View {
-        List(selection: selection) {
-            Section {
-                HStack {
+        VStack(spacing: 0) {
+            List(selection: selection) {
+                Section {
                     VStack(alignment: .leading, spacing: 3) {
                         Text("CODEX / LOCAL")
                             .font(.caption2.monospaced().weight(.bold))
@@ -161,39 +161,47 @@ struct CodexPadRootView: View {
                             .font(.title2.bold())
                             .foregroundStyle(CodexPalette.ink)
                     }
-                    Spacer()
-                    EngineStatusPill(phase: model.enginePhase)
+                    .listRowBackground(Color.clear)
+                    .accessibilityElement(children: .combine)
                 }
-                .listRowBackground(Color.clear)
-                .accessibilityElement(children: .combine)
-            }
 
-            Section("Recent threads") {
-                ForEach(filteredThreads) { thread in
-                    ThreadRow(thread: thread)
-                        .tag(thread.id)
-                        .contextMenu {
-                            Button("Archive", systemImage: "archivebox") {
-                                model.selectedThreadID = thread.id
-                                Task { await model.archiveSelectedThread() }
+                Section("Recent threads") {
+                    ForEach(filteredThreads) { thread in
+                        ThreadRow(thread: thread)
+                            .tag(thread.id)
+                            .contextMenu {
+                                Button("Archive", systemImage: "archivebox") {
+                                    model.selectedThreadID = thread.id
+                                    Task { await model.archiveSelectedThread() }
+                                }
                             }
-                        }
+                    }
                 }
             }
+            .listStyle(.sidebar)
+            .scrollContentBackground(.hidden)
 
-            Section {
-                Button {
-                    showsThreadBrowser = false
-                    model.showsSettings = true
-                } label: {
+            Divider().overlay(CodexPalette.line)
+            Button {
+                showsThreadBrowser = false
+                model.showsSettings = true
+            } label: {
+                HStack {
                     Label(model.account.displayName, systemImage: model.account.isAuthenticated ? "person.crop.circle.fill" : "person.crop.circle.badge.questionmark")
+                    Spacer()
+                    Image(systemName: "chevron.right")
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(CodexPalette.secondaryInk)
                 }
-                .accessibilityIdentifier("codexpad.settings")
             }
+            .buttonStyle(.plain)
+            .contentShape(Rectangle())
+            .padding(.horizontal, 18)
+            .frame(minHeight: 54)
+            .background(.bar)
+            .accessibilityIdentifier("codexpad.settings")
         }
-        .listStyle(.sidebar)
         .accessibilityIdentifier("codexpad.sidebar")
-        .scrollContentBackground(.hidden)
         .background(CodexPalette.canvas)
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search threads")
         .navigationTitle("CodexPad")

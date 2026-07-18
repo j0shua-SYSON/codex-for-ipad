@@ -69,7 +69,7 @@ struct ThreadRow: View {
                             .background(CodexPalette.cobalt.opacity(0.1), in: Capsule())
                     }
                 }
-                Text(thread.cwd.replacingOccurrences(of: "/root/workspace/", with: ""))
+                Text(workspaceName)
                     .font(.caption.monospaced())
                     .foregroundStyle(CodexPalette.secondaryInk)
                     .lineLimit(1)
@@ -88,6 +88,10 @@ struct ThreadRow: View {
         case .offline: "circle.dotted"
         case .failed: "exclamationmark.circle.fill"
         }
+    }
+
+    private var workspaceName: String {
+        thread.cwd.split(separator: "/").last.map(String.init) ?? thread.cwd
     }
 
     private var activityColor: Color {
@@ -138,10 +142,12 @@ struct TimelineCard: View {
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(accent)
                 Spacer(minLength: 12)
-                Label(stateLabel, systemImage: stateIcon)
-                    .labelStyle(.titleAndIcon)
-                    .font(.caption)
-                    .foregroundStyle(CodexPalette.secondaryInk)
+                if item.kind != .user {
+                    Label(stateLabel, systemImage: stateIcon)
+                        .labelStyle(.titleAndIcon)
+                        .font(.caption)
+                        .foregroundStyle(CodexPalette.secondaryInk)
+                }
             }
 
             if item.kind == .reasoning {
@@ -322,11 +328,12 @@ struct ApprovalRequestCard: View {
     private var actionButtons: some View {
         switch request.kind {
         case .elicitation:
-            Button("Decline") { resolve(.decline) }
-                .buttonStyle(.borderedProminent)
-                .tint(CodexPalette.cobalt)
+            Button("Decline", role: .destructive) { resolve(.decline) }
+                .buttonStyle(.bordered)
+                .tint(CodexPalette.danger)
             Button("Cancel request", role: .cancel) { resolve(.cancel) }
                 .buttonStyle(.bordered)
+                .tint(CodexPalette.secondaryInk)
         case .unsupported:
             Button("Dismiss") { resolve(.decline) }
                 .buttonStyle(.bordered)
@@ -338,6 +345,7 @@ struct ApprovalRequestCard: View {
                 .buttonStyle(.bordered)
             Button("Don’t allow", role: .destructive) { resolve(.decline) }
                 .buttonStyle(.bordered)
+                .tint(CodexPalette.danger)
         }
     }
 }

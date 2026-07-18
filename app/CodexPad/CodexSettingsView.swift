@@ -33,12 +33,19 @@ struct CodexSettingsView: View {
                     Text("Source and third-party notices are included with every release.")
                 }
             }
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear
+                    .frame(height: 24)
+                    .accessibilityHidden(true)
+            }
             .navigationTitle("Settings")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Done") { dismiss() }
                 }
             }
+            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
             .confirmationDialog(
                 "Unlink the Files folder?",
                 isPresented: $confirmsUnlink,
@@ -55,30 +62,36 @@ struct CodexSettingsView: View {
     }
 
     private var inputSection: some View {
-        Section("Input mode") {
+        Section {
             Toggle("Desktop mode", isOn: $model.desktopModeEnabled)
                 .accessibilityIdentifier("codexpad.desktop-mode")
-            Text(model.desktopModeEnabled
-                ? "Optimized for pointer and hardware keyboard. After you click the composer once, focus is restored after sends, stops, navigation, settings, and terminal use."
-                : "Optimized for direct touch. The keyboard dismisses naturally while scrolling and after sending.")
-                .font(.caption)
-                .foregroundStyle(CodexPalette.secondaryInk)
 
             if !model.desktopModeEnabled {
                 Toggle("Show all Codex features", isOn: $model.showAllFeaturesInTouchMode)
                     .accessibilityIdentifier("codexpad.touch-show-all")
-                Text("Keeps touch mode behavior while revealing the complete Feature Center and long-tail controls.")
-                    .font(.caption)
-                    .foregroundStyle(CodexPalette.secondaryInk)
             } else {
                 Label("All compatible features are always visible in desktop mode.", systemImage: "checkmark.circle.fill")
                     .foregroundStyle(CodexPalette.teal)
             }
+        } header: {
+            Text("Input mode")
+        } footer: {
+            Text(inputModeDescription)
         }
     }
 
+    private var inputModeDescription: String {
+        if model.desktopModeEnabled {
+            return "Desktop mode is optimized for a pointer and hardware keyboard. After the composer is engaged once, focus returns after sends, stops, navigation, settings, and terminal use."
+        }
+        if model.showAllFeaturesInTouchMode {
+            return "Touch input and software-keyboard behavior stay active while the complete Feature Center and long-tail controls are visible."
+        }
+        return "Touch mode prioritizes direct input and software-keyboard behavior while hiding less-used controls."
+    }
+
     private var modelSection: some View {
-        Section("Model") {
+        Section {
             if model.availableModels.isEmpty {
                 LabeledContent("Catalog") {
                     ProgressView().controlSize(.small)
@@ -98,9 +111,6 @@ struct CodexSettingsView: View {
                 }
 
                 if let selected = model.selectedModel {
-                    Text(selected.description)
-                        .font(.caption)
-                        .foregroundStyle(CodexPalette.secondaryInk)
                     Picker("Reasoning", selection: reasoningSelection) {
                         ForEach(selected.reasoningEfforts) { effort in
                             Text(effort.effort.capitalized).tag(effort.effort)
@@ -134,6 +144,14 @@ struct CodexSettingsView: View {
                 }
             }
             .disabled(!model.enginePhase.isReady)
+        } header: {
+            Text("Model")
+        } footer: {
+            if let selected = model.selectedModel, !selected.description.isEmpty {
+                Text(selected.description)
+            } else {
+                Text("The catalog is loaded from the active Codex provider and includes its supported reasoning and collaboration options.")
+            }
         }
     }
 
@@ -174,16 +192,13 @@ struct CodexSettingsView: View {
     }
 
     private var workspaceSection: some View {
-        Section("Workspace") {
+        Section {
             switch model.linkedFolderPhase {
             case .disconnected:
                 Button("Choose folder in Files", systemImage: "folder.badge.plus") {
                     Task { await model.chooseFilesFolder() }
                 }
                 .disabled(!model.enginePhase.isReady)
-                Text("The selected folder is mounted directly into iSH and becomes Codex's working directory.")
-                    .font(.caption)
-                    .foregroundStyle(CodexPalette.secondaryInk)
             case .choosing:
                 HStack {
                     ProgressView()
@@ -209,13 +224,30 @@ struct CodexSettingsView: View {
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
                 .font(.body.monospaced())
-            LabeledContent("Runtime", value: "iSH - Alpine x86")
+            LabeledContent("Runtime", value: "iSH – Alpine x86")
             LabeledContent("Transport", value: "Guest loopback")
+        } header: {
+            Text("Workspace")
+        } footer: {
+            Text(workspaceDescription)
+        }
+    }
+
+    private var workspaceDescription: String {
+        switch model.linkedFolderPhase {
+        case .disconnected:
+            "Choose a folder to mount it directly into iSH and make it Codex’s working directory. The guest path above is the default local workspace."
+        case .choosing:
+            "CodexPad is waiting for a security-scoped folder selection from Files."
+        case .linked:
+            "This Files folder is mounted as a distinct linked workspace; unlinking removes access without deleting any files."
+        case .needsRelink:
+            "The saved Files permission is no longer usable. Select the folder again to restore its iSH mount."
         }
     }
 
     private var featureSection: some View {
-        Section("Codex feature coverage") {
+        Section {
             LabeledContent("Compatible operations", value: "\(CodexFeatureCatalog.compatibleFeatureCount)")
             LabeledContent("Platform exceptions", value: "\(CodexFeatureCatalog.unavailableFeatureCount)")
             if model.showsCompleteFeatureSet {
@@ -226,10 +258,14 @@ struct CodexSettingsView: View {
                     }
                 }
                 .accessibilityIdentifier("codexpad.open-feature-center")
-            } else {
+            }
+        } header: {
+            Text("Codex feature coverage")
+        } footer: {
+            if !model.showsCompleteFeatureSet {
                 Text("Turn on Show all Codex features above to reveal advanced, experimental, and long-tail operations while staying in touch mode.")
-                    .font(.caption)
-                    .foregroundStyle(CodexPalette.secondaryInk)
+            } else {
+                Text("Every compatible operation in the pinned app-server protocol is available through a native control or the structured Feature Center.")
             }
         }
     }
