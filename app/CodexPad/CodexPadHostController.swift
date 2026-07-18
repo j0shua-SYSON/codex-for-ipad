@@ -3,14 +3,14 @@ import UIKit
 
 @objc(CodexPadHostViewController)
 @MainActor
-final class CodexPadHostViewController: UIViewController {
+public final class CodexPadHostViewController: UIViewController {
     private let terminalViewController: UIViewController
     private let model = CodexWorkspaceModel()
     private var workspaceController: UIHostingController<CodexPadRootView>?
     private let returnButton = UIButton(type: .system)
 
     @objc(initWithTerminalViewController:)
-    init(terminalViewController: UIViewController) {
+    public init(terminalViewController: UIViewController) {
         self.terminalViewController = terminalViewController
         super.init(nibName: nil, bundle: nil)
     }

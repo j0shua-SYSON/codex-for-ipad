@@ -13,3 +13,15 @@ index 23b5774f5..d17ec6172 100644
  # Build OpenSSL from source for musl builds.
  [target.x86_64-unknown-linux-musl.dependencies]
  openssl-sys = { workspace = true, features = ["vendored"] }
+diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
+index a44af07b5..47b061a55 100644
+--- a/codex-rs/Cargo.lock
++++ b/codex-rs/Cargo.lock
+@@ -2619,6 +2619,7 @@ dependencies = [
+  "assert_matches",
+  "async-channel",
+  "base64 0.22.1",
++ "blake3",
+  "bm25",
+  "chrono",
+  "clap",

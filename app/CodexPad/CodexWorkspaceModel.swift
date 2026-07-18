@@ -157,7 +157,7 @@ final class CodexWorkspaceModel: ObservableObject {
                 params: .object([
                     "cwd": .string(workspacePath),
                     "approvalPolicy": .string("on-request"),
-                    "sandbox": .string("workspaceWrite"),
+                    "sandbox": .string("workspace-write"),
                     "personality": .string("pragmatic"),
                     "serviceName": .string("codexpad")
                 ])
@@ -290,7 +290,11 @@ final class CodexWorkspaceModel: ObservableObject {
                     "threadId": .string(threadID),
                     "clientUserMessageId": .string(clientID),
                     "input": .array([
-                        .object(["type": .string("text"), "text": .string(text)])
+                        .object([
+                            "type": .string("text"),
+                            "text": .string(text),
+                            "text_elements": .array([])
+                        ])
                     ])
                 ])
             )
@@ -353,7 +357,11 @@ final class CodexWorkspaceModel: ObservableObject {
                 "scope": .string(choice == .session ? "session" : "turn")
             ])
         case .elicitation:
-            result = .object(["action": .string(choice == .cancel ? "cancel" : "decline")])
+            result = .object([
+                "action": .string(choice == .cancel ? "cancel" : "decline"),
+                "content": .null,
+                "_meta": .null
+            ])
         case .question, .unsupported:
             result = .object([:])
         }
