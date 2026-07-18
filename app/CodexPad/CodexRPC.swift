@@ -143,6 +143,22 @@ final class CodexRPCClient: ObservableObject {
         )
     }
 
+    func respondUnsupported(to id: JSONValue, method: String) async throws {
+        guard let socket else {
+            throw CodexRPCError(code: nil, message: "Codex engine is not connected")
+        }
+        try await send(
+            .object([
+                "id": id,
+                "error": .object([
+                    "code": .integer(-32601),
+                    "message": .string("CodexPad does not support server request \(method)")
+                ])
+            ]),
+            through: socket
+        )
+    }
+
     private func receiveMessages(from socket: URLSessionWebSocketTask) async {
         while !Task.isCancelled {
             do {

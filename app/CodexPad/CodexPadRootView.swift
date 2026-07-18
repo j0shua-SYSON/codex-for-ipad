@@ -17,6 +17,7 @@ struct CodexPadRootView: View {
             CodexWorkbenchView(model: model)
         }
         .navigationSplitViewStyle(.balanced)
+        .accessibilityIdentifier("codexpad.workspace")
         .tint(CodexPalette.cobalt)
         .background(CodexPalette.canvas)
         .toolbar {
@@ -26,12 +27,14 @@ struct CodexPadRootView: View {
                 } label: {
                     Label("New thread", systemImage: "square.and.pencil")
                 }
+                .accessibilityIdentifier("codexpad.new-thread")
                 .keyboardShortcut("n", modifiers: .command)
                 .disabled(!model.enginePhase.isReady)
 
                 Button(action: showTerminal) {
                     Label("Terminal", systemImage: "terminal")
                 }
+                .accessibilityIdentifier("codexpad.terminal")
                 .keyboardShortcut("t", modifiers: [.command, .shift])
 
                 Button {
@@ -95,6 +98,7 @@ struct CodexPadRootView: View {
             }
         }
         .listStyle(.sidebar)
+        .accessibilityIdentifier("codexpad.sidebar")
         .scrollContentBackground(.hidden)
         .background(CodexPalette.canvas)
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search threads")

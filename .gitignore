@@ -26,5 +26,6 @@ e2e_out/
 DerivedData/
 artifacts/
 .cache/
+__pycache__/
 rootfs-staging/
 *.xcresult

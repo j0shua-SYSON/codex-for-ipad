@@ -28,6 +28,8 @@ on:
       - "Dependencies/upstreams.json"
       - "scripts/build-codex-i686.sh"
       - "scripts/package-runtime-rootfs.sh"
+      - "scripts/validate-codex-protocol.py"
+      - "compat/**"
       - "patches/**"
       - "runtime/**"
   pull_request:
@@ -37,6 +39,8 @@ on:
       - "Dependencies/upstreams.json"
       - "scripts/build-codex-i686.sh"
       - "scripts/package-runtime-rootfs.sh"
+      - "scripts/validate-codex-protocol.py"
+      - "compat/**"
       - "patches/**"
       - "runtime/**"
 
@@ -98,6 +102,12 @@ jobs:
                 --target "$CODEX_TARGET"
           echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
 
+      - name: Validate native protocol contract
+        shell: bash
+        run: >-
+          python3 scripts/validate-codex-protocol.py
+          upstream/codex/codex-rs/app-server-protocol/schema/json
+
       - name: Install Zig
         uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
         with:
@@ -128,6 +138,7 @@ jobs:
         shell: bash
         env:
           CODEX_BINARY: ${{ env.CARGO_TARGET_DIR }}/${{ env.CODEX_TARGET }}/release/codex-app-server
+          CODEX_SOURCE_DIR: ${{ github.workspace }}/upstream/codex
           OUTPUT_ROOTFS: ${{ github.workspace }}/artifacts/codexpad-rootfs.tar.gz
         run: $GITHUB_WORKSPACE/scripts/package-runtime-rootfs.sh
 

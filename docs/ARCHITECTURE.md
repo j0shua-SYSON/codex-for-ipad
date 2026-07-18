@@ -1,6 +1,6 @@
 # CodexPad architecture
 
-CodexPad is a fully local iPadOS client for the open-source Codex agent. It combines three layers in one app process:
+CodexPad runs the open-source Codex agent and its Linux tool environment locally on iPadOS. Provider-backed model inference remains a network operation. The app combines three layers in one process:
 
 1. **Native workspace** — an adaptive SwiftUI interface for threads, conversation items, plans, approvals, diffs, files, settings, and a recoverable terminal.
 2. **Codex app-server** — the upstream Rust `codex-app-server`, cross-compiled as a static 32-bit x86 musl executable. The native client uses the upstream v2 JSON-RPC protocol over an app-local WebSocket.
@@ -29,13 +29,13 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 - Rust: `1.95.0`
 - Guest target: `i686-unknown-linux-musl`
 
-`Dependencies/upstreams.json` is the single source of truth for these pins. A scheduled workflow discovers new Codex commits, reads their required Rust toolchain, runs the complete i686-musl compatibility build, and opens an update pull request only after that gate passes. Runtime code never assumes a particular Codex version string; protocol capability negotiation and tolerant decoding handle additive v2 changes.
+`Dependencies/upstreams.json` is the single source of truth for these pins. A scheduled workflow discovers new Codex commits, reads their required Rust toolchain, verifies the native client's method and payload contract against that commit's generated JSON Schema, runs the complete i686-musl compatibility build, and opens an update pull request only after those gates pass. Runtime code never assumes a particular Codex version string; protocol capability negotiation and tolerant decoding handle additive v2 changes.
 
 ## Runtime contract
 
 - Bind app-server only to guest loopback.
 - Complete `initialize` / `initialized` before other requests.
-- Keep API credentials in the iOS Keychain and transfer them only to the local guest process.
+- Delegate credential persistence and refresh to the upstream app-server inside the private iSH root.
 - Keep repositories and Codex state inside the selected iSH root.
 - Route command, file-change, permission, and user-input requests to native approval surfaces.
 - Keep the terminal available as a recovery tool; it is not the primary UI.
@@ -45,4 +45,6 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 - Active turns can be suspended when iPadOS suspends the app.
 - Performance depends on x86 emulation and project size.
 - External toolchains still need Alpine-compatible x86 packages.
+- Experimental Code Mode cannot run in-process because Rusty V8 has no i686-musl distribution. The compatibility layer preserves the upstream service API and returns an explicit error only if that disabled-by-default feature is enabled.
+- Provider-backed model inference still requires network access; this architecture does not claim offline LLM inference.
 - Distribution must satisfy iSH's GPL terms and the additional iOS permission in `LICENSE.IOS`; Codex notices remain included under Apache-2.0.
