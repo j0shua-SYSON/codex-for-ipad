@@ -20,6 +20,12 @@ struct CodexPadRootView: View {
             CodexConversationView(model: model)
                 .toolbar {
                     ToolbarItemGroup(placement: .topBarTrailing) {
+                        Button(action: showTerminal) {
+                            Label("Terminal", systemImage: "terminal")
+                        }
+                        .accessibilityIdentifier("codexpad.terminal")
+                        .keyboardShortcut("t", modifiers: [.command, .shift])
+
                         Button {
                             Task { await model.createThread() }
                         } label: {
@@ -29,23 +35,19 @@ struct CodexPadRootView: View {
                         .keyboardShortcut("n", modifiers: .command)
                         .disabled(!model.enginePhase.isReady)
 
-                        Button(action: showTerminal) {
-                            Label("Terminal", systemImage: "terminal")
+                        if !shouldPrioritizeConversation {
+                            Button {
+                                showsWorkbench.toggle()
+                            } label: {
+                                Label(
+                                    showsWorkbench ? "Hide workbench" : "Show workbench",
+                                    systemImage: "sidebar.right"
+                                )
+                            }
+                            .accessibilityIdentifier("codexpad.toggle-workbench")
+                            .accessibilityValue(showsWorkbench ? "Shown" : "Hidden")
+                            .keyboardShortcut("i", modifiers: [.command, .option])
                         }
-                        .accessibilityIdentifier("codexpad.terminal")
-                        .keyboardShortcut("t", modifiers: [.command, .shift])
-
-                        Button {
-                            showsWorkbench.toggle()
-                        } label: {
-                            Label(
-                                showsWorkbench ? "Hide workbench" : "Show workbench",
-                                systemImage: "sidebar.right"
-                            )
-                        }
-                        .accessibilityIdentifier("codexpad.toggle-workbench")
-                        .accessibilityValue(showsWorkbench ? "Shown" : "Hidden")
-                        .keyboardShortcut("i", modifiers: [.command, .option])
                     }
                 }
         }
