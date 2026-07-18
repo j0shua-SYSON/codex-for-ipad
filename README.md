@@ -42,7 +42,7 @@ For a Mac build, clone with submodules and open `iSH.xcodeproj`. Pass `CODEXPAD_
 
 The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patch, builds the complete i686 runtime and iPad app, and only then opens a pin-update pull request. Additive protocol fields are decoded tolerantly; breaking schema or target changes fail the gate instead of silently shipping a partial port.
 
-Platform-specific files stay in `app/CodexPad`, `runtime`, `patches`, and the build workflows. The imported iSH core and upstream Codex checkout are not edited in place.
+Platform-specific code is concentrated in `app/CodexPad`, `runtime`, `patches`, and the build workflows, with small host hooks in `AppGroup.m`, `SceneDelegate.m`, `TerminalViewController`, and the Xcode project. The upstream Codex checkout is never edited in place, and the iSH changes remain deliberately narrow and reviewable.
 
 The small target layer is documented in [`compat/README.md`](compat/README.md). It is deliberately isolated so a future upstream implementation can replace it without forking Codex's application logic.
 
