@@ -56,9 +56,17 @@
     XCTAssertTrue([composer exists]);
     XCTAssertTrue([composer isHittable]);
 
-    XCUIElement *terminalButton = [self hittableButtonWithIdentifier:@"codexpad.terminal"
-                                                       inApplication:app];
-    XCTAssertNotNil(terminalButton);
+    XCUIElement *terminalButton;
+    if (expectsWorkbench) {
+        terminalButton = [self hittableButtonWithIdentifier:@"codexpad.terminal"
+                                              inApplication:app];
+        XCTAssertNotNil(terminalButton);
+    } else {
+        // The single-column hierarchy has exactly one stable toolbar element;
+        // querying it directly avoids XCTest's slow multi-match snapshot path.
+        terminalButton = app.buttons[@"codexpad.terminal"];
+        XCTAssertTrue(terminalButton.isHittable);
+    }
     [terminalButton tap];
     XCUIElement *returnButton = app.buttons[@"codexpad.return-to-workspace"];
     XCTAssertTrue([returnButton waitForExistenceWithTimeout:5]);
