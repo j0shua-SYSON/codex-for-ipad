@@ -19,7 +19,7 @@ This is an independent community port, not an official OpenAI or iSH app. It is 
 
 ## Native workspace
 
-The interface uses a three-column `NavigationSplitView`: recent threads, a semantic activity timeline, and a workbench for plans, diffs, files, and runtime diagnostics. It includes native command/file/permission approvals, `request_user_input`, account sign-in, keyboard shortcuts, pointer-friendly system controls, Dynamic Type, VoiceOver labels, dark mode, and compact-width adaptation.
+The interface uses a three-column `NavigationSplitView`: recent threads, a semantic activity timeline, and a workbench for plans, diffs, files, and runtime diagnostics. It includes native command/file/permission approvals, `request_user_input`, account sign-in, keyboard shortcuts, pointer-friendly system controls, Dynamic Type, VoiceOver labels, dark mode, and compact-width adaptation. Hosted UI gates exercise both an 11-inch iPad at standard text size and an iPad mini at an accessibility text size in Dark Mode.
 
 See [the HIG release checklist](docs/HIG_CHECKLIST.md) and [the architecture](docs/ARCHITECTURE.md) for the design and platform boundaries.
 
