@@ -32,9 +32,10 @@ final class CodexWorkspaceModel: ObservableObject {
     private var didStart = false
 
     init(
-        rpc: CodexRPCClient = CodexRPCClient(),
+        rpc: CodexRPCClient? = nil,
         demoMode: Bool = ProcessInfo.processInfo.arguments.contains("--codexpad-demo")
     ) {
+        let rpc = rpc ?? CodexRPCClient()
         self.rpc = rpc
         self.demoMode = demoMode
         rpc.inboundHandler = { [weak self] inbound in

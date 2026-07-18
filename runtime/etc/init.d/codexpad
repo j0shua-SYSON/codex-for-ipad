@@ -1,0 +1,26 @@
+#!/sbin/openrc-run
+
+name="CodexPad app-server"
+description="Local Codex app-server for the native iPad workspace"
+
+command="/usr/local/libexec/codexpad/codex-app-server"
+command_args="--listen ws://127.0.0.1:4500"
+command_background="yes"
+directory="/root/workspace"
+pidfile="/run/codexpad-app-server.pid"
+output_log="/var/log/codexpad/app-server.log"
+error_log="/var/log/codexpad/app-server.log"
+
+export HOME="/root"
+export CODEX_HOME="/root/.codex"
+export RUST_BACKTRACE="1"
+
+depend() {
+    after bootmisc
+}
+
+start_pre() {
+    checkpath --directory --mode 0700 /root/.codex
+    checkpath --directory --mode 0755 /root/workspace
+    checkpath --directory --mode 0755 /var/log/codexpad
+}

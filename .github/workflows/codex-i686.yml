@@ -27,12 +27,18 @@ on:
       - ".github/workflows/codex-i686.yml"
       - "Dependencies/upstreams.json"
       - "scripts/build-codex-i686.sh"
+      - "scripts/package-runtime-rootfs.sh"
+      - "patches/**"
+      - "runtime/**"
   pull_request:
     branches: [main]
     paths:
       - ".github/workflows/codex-i686.yml"
       - "Dependencies/upstreams.json"
       - "scripts/build-codex-i686.sh"
+      - "scripts/package-runtime-rootfs.sh"
+      - "patches/**"
+      - "runtime/**"
 
 permissions:
   contents: read
@@ -118,6 +124,23 @@ jobs:
             -type f -print0 | sort -z | xargs -0 sha256sum \
             | sha256sum | tee artifacts/app-server-protocol.sha256
 
+      - name: Package pinned Alpine runtime
+        shell: bash
+        env:
+          CODEX_BINARY: ${{ env.CARGO_TARGET_DIR }}/${{ env.CODEX_TARGET }}/release/codex-app-server
+          OUTPUT_ROOTFS: ${{ github.workspace }}/artifacts/codexpad-rootfs.tar.gz
+        run: $GITHUB_WORKSPACE/scripts/package-runtime-rootfs.sh
+
+      - name: Inspect runtime image
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -tzf artifacts/codexpad-rootfs.tar.gz \
+            | grep -E '^\./(etc/init\.d/codexpad|etc/runlevels/default/codexpad|usr/local/libexec/codexpad/codex-app-server|usr/bin/git|usr/bin/rg)$'
+          tar -xOf artifacts/codexpad-rootfs.tar.gz \
+            ./usr/local/share/codexpad/runtime.json | jq -e \
+            --arg revision "$CODEX_REVISION" '.codexRevision == $revision'
+
       - name: Upload iSH runtime
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
@@ -127,6 +150,59 @@ jobs:
             artifacts/codex-app-server.sha256
             artifacts/codex-app-server.file.txt
             artifacts/app-server-protocol.sha256
+            artifacts/codexpad-rootfs.tar.gz
+            artifacts/codexpad-rootfs.tar.gz.sha256
           if-no-files-found: error
           compression-level: 9
+          retention-days: 14
+
+  ipad-app:
+    name: Build integrated CodexPad app
+    needs: app-server
+    runs-on: macos-26
+    timeout-minutes: 45
+
+    steps:
+      - name: Check out CodexPad
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          submodules: recursive
+          persist-credentials: false
+
+      - name: Download verified runtime
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: codex-app-server-i686-musl
+          path: artifacts/runtime
+
+      - name: Install iSH build dependencies
+        shell: bash
+        run: brew install llvm lld ninja libarchive meson
+
+      - name: Build unsigned iPad app
+        shell: bash
+        run: |
+          set -euo pipefail
+          xcodebuild \
+            -project iSH.xcodeproj \
+            -scheme iSH \
+            -configuration Release \
+            -arch arm64 \
+            -sdk iphoneos \
+            -derivedDataPath "$GITHUB_WORKSPACE/artifacts/DerivedData" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODEXPAD_ROOTFS_PATH="$GITHUB_WORKSPACE/artifacts/runtime/codexpad-rootfs.tar.gz"
+          app_path="$(find artifacts/DerivedData/Build/Products/Release-iphoneos -maxdepth 1 -name '*.app' -print -quit)"
+          test -n "$app_path"
+          test -f "$app_path/root.tar.gz"
+          cmp "$app_path/root.tar.gz" artifacts/runtime/codexpad-rootfs.tar.gz
+          ditto -c -k --sequesterRsrc --keepParent "$app_path" artifacts/CodexPad-unsigned.app.zip
+
+      - name: Upload unsigned iPad app
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: CodexPad-unsigned-iPadOS
+          path: artifacts/CodexPad-unsigned.app.zip
+          if-no-files-found: error
+          compression-level: 0
           retention-days: 14

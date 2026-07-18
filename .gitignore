@@ -25,5 +25,6 @@ e2e_out/
 .codex-local/
 DerivedData/
 artifacts/
+.cache/
 rootfs-staging/
 *.xcresult
