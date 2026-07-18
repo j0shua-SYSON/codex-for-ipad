@@ -83,13 +83,15 @@ struct CodexPadRootView: View {
                     }
                 }
 
-                ToolbarItemGroup(placement: .topBarTrailing) {
+                ToolbarItem(placement: .primaryAction) {
                     Button(action: showTerminal) {
                         Label("Terminal", systemImage: "terminal")
                     }
                     .accessibilityIdentifier("codexpad.terminal")
                     .keyboardShortcut("t", modifiers: [.command, .shift])
+                }
 
+                ToolbarItemGroup(placement: .topBarTrailing) {
                     Button {
                         Task { await model.createThread() }
                     } label: {
