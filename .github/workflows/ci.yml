@@ -9,6 +9,9 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   build-linux:
     runs-on: ubuntu-24.04
@@ -17,12 +20,15 @@ jobs:
         cc: [clang, gcc]
         kernel: [ish, linux]
     steps:
-      - uses: actions/checkout@v6
+      - name: Check out CodexPad
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-            submodules: true
-      - uses: actions/setup-python@v6
+          submodules: recursive
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6.0.0
         with:
-            python-version: '3.x'
+          python-version: '3.x'
       - name: Install dependencies
         run: |
           sudo apt-get update
@@ -47,9 +53,11 @@ jobs:
       matrix:
         kernel: [ish, linux]
     steps:
-      - uses: actions/checkout@v2
+      - name: Check out CodexPad
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
         with:
-            submodules: true
+          submodules: recursive
+          persist-credentials: false
       - name: Install dependencies
         run: |
           brew install llvm lld ninja libarchive meson
