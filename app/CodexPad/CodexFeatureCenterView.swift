@@ -4,7 +4,7 @@ struct CodexFeatureCenterView: View {
     @ObservedObject var model: CodexWorkspaceModel
     @Environment(\.dismiss) private var dismiss
 
-    @State private var selection: String? = "thread/start"
+    @State private var selection: String?
     @State private var searchText = ""
     @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
 
