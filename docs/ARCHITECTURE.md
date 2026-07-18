@@ -1,0 +1,48 @@
+# CodexPad architecture
+
+CodexPad is a fully local iPadOS client for the open-source Codex agent. It combines three layers in one app process:
+
+1. **Native workspace** — an adaptive SwiftUI interface for threads, conversation items, plans, approvals, diffs, files, settings, and a recoverable terminal.
+2. **Codex app-server** — the upstream Rust `codex-app-server`, cross-compiled as a static 32-bit x86 musl executable. The native client uses the upstream v2 JSON-RPC protocol over an app-local WebSocket.
+3. **iSH runtime** — iSH's user-mode x86 emulator, syscall translation, fakefs filesystem, networking, PTYs, and Files integration. It boots a pinned Alpine x86 root containing Codex and essential development tools.
+
+```text
+SwiftUI workspace
+      |
+      | JSON-RPC v2 / ws://127.0.0.1
+      v
+Codex app-server (i686-musl)
+      |
+      | Linux syscalls
+      v
+iSH kernel + x86 emulator -> fakefs -> Files app
+```
+
+## Why this boundary
+
+iPadOS does not provide unrestricted process execution or a desktop sandbox API. Porting only the Codex UI would therefore produce a remote client, while compiling Codex directly for arm64-iOS would remove the shell and tool environment that makes it an agent. iSH keeps the complete Linux execution model on-device. The tradeoffs are x86 emulation cost and iPadOS background suspension.
+
+## Pinned sources
+
+- iSH: `997642f3787cc63e65f7134b7bb0362c74bff8e0`
+- Codex: `6bd3f5e3db8275c10c7e4bbcc1342c32a89b7eee`
+- Rust: `1.95.0`
+- Guest target: `i686-unknown-linux-musl`
+
+Pins are updated deliberately after both hosted compatibility and iPad builds pass.
+
+## Runtime contract
+
+- Bind app-server only to guest loopback.
+- Complete `initialize` / `initialized` before other requests.
+- Keep API credentials in the iOS Keychain and transfer them only to the local guest process.
+- Keep repositories and Codex state inside the selected iSH root.
+- Route command, file-change, permission, and user-input requests to native approval surfaces.
+- Keep the terminal available as a recovery tool; it is not the primary UI.
+
+## Honest platform limits
+
+- Active turns can be suspended when iPadOS suspends the app.
+- Performance depends on x86 emulation and project size.
+- External toolchains still need Alpine-compatible x86 packages.
+- Distribution must satisfy iSH's GPL terms and the additional iOS permission in `LICENSE.IOS`; Codex notices remain included under Apache-2.0.
