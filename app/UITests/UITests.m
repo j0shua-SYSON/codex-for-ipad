@@ -8,7 +8,7 @@
 #import <XCTest/XCTest.h>
 
 @interface UITests : XCTestCase
-- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench;
+- (void)exerciseCodexPadExpandedWorkspace:(BOOL)expandedWorkspace;
 - (XCUIElement *)hittableButtonWithIdentifier:(NSString *)identifier
                                 inApplication:(XCUIApplication *)app;
 - (XCUIElement *)hittableButtonWithLabelContaining:(NSString *)fragment
@@ -22,11 +22,11 @@
 }
 
 - (void)testCodexPadStandardWorkspaceAndTerminalRecovery {
-    [self exerciseCodexPadExpectingWorkbench:YES];
+    [self exerciseCodexPadExpandedWorkspace:YES];
 }
 
 - (void)testCodexPadAccessibilityWorkspaceAndTerminalRecovery {
-    [self exerciseCodexPadExpectingWorkbench:NO];
+    [self exerciseCodexPadExpandedWorkspace:NO];
 }
 
 - (void)testCodexPadDesktopModeCompleteSurfaceAndFocus {
@@ -89,7 +89,7 @@
     [self addAttachment:screenshot];
 }
 
-- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench {
+- (void)exerciseCodexPadExpandedWorkspace:(BOOL)expandedWorkspace {
     XCUIApplication *app = [[XCUIApplication alloc] init];
     app.launchArguments = @[@"--codexpad-demo"];
     [app launch];
@@ -99,14 +99,22 @@
     XCTAssertTrue([app.keyboards.firstMatch waitForNonExistenceWithTimeout:5]);
 
     XCUIElement *workbench = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.workbench"];
-    if (expectsWorkbench) {
+    if (expandedWorkspace) {
+        // Touch mode starts with the optional inspector hidden in portrait,
+        // but the complete workbench remains one tap away.
+        XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
+        XCUIElement *workbenchToggle = app.buttons[@"codexpad.toggle-workbench"];
+        XCTAssertTrue(workbenchToggle.isHittable);
+        [workbenchToggle tap];
         XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
+        [workbenchToggle tap];
+        XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
     } else {
         XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
     }
 
     XCUIElement *sidebar = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.sidebar"];
-    if (!expectsWorkbench) {
+    if (!expandedWorkspace) {
         XCTAssertTrue([sidebar waitForNonExistenceWithTimeout:5]);
     }
 
@@ -120,7 +128,7 @@
     XCTAssertTrue([composer exists]);
     XCTAssertTrue([composer isHittable]);
 
-    if (expectsWorkbench) {
+    if (expandedWorkspace) {
         XCUIElement *settings = [self hittableButtonWithIdentifier:@"codexpad.settings"
                                                      inApplication:app];
         if (settings == nil) {
@@ -180,7 +188,7 @@
     }
 
     XCUIElement *terminalButton;
-    if (expectsWorkbench) {
+    if (expandedWorkspace) {
         terminalButton = [self hittableButtonWithIdentifier:@"codexpad.terminal"
                                               inApplication:app];
         if (terminalButton == nil) {
@@ -207,17 +215,13 @@
     [returnButton tap];
     XCTAssertTrue([workspace waitForExistenceWithTimeout:5]);
     XCTAssertTrue([app.keyboards.firstMatch waitForNonExistenceWithTimeout:5]);
-    if (expectsWorkbench) {
-        XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
-    } else {
-        XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
-    }
-    if (!expectsWorkbench) {
+    XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
+    if (!expandedWorkspace) {
         XCTAssertTrue([sidebar waitForNonExistenceWithTimeout:5]);
     }
 
     XCTAttachment *screenshot = [XCTAttachment attachmentWithScreenshot:XCUIScreen.mainScreen.screenshot];
-    screenshot.name = expectsWorkbench ? @"CodexPad standard workspace" : @"CodexPad accessibility workspace";
+    screenshot.name = expandedWorkspace ? @"CodexPad standard workspace" : @"CodexPad accessibility workspace";
     screenshot.lifetime = XCTAttachmentLifetimeKeepAlways;
     [self addAttachment:screenshot];
 }

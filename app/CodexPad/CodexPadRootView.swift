@@ -8,6 +8,7 @@ struct CodexPadRootView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @State private var showsWorkbench = false
     @State private var showsThreadBrowser = false
     @State private var didConfigureInitialLayout = false
@@ -49,6 +50,9 @@ struct CodexPadRootView: View {
             prioritizeConversationIfNeeded()
         }
         .onChange(of: horizontalSizeClass) { _, _ in
+            prioritizeConversationIfNeeded()
+        }
+        .onChange(of: verticalSizeClass) { _, _ in
             prioritizeConversationIfNeeded()
         }
         .onChange(of: model.loginURL) { _, url in
@@ -216,7 +220,7 @@ struct CodexPadRootView: View {
     }
 
     private func prioritizeConversationIfNeeded() {
-        if shouldPrioritizeConversation {
+        if shouldPrioritizeConversation || UIScreen.main.bounds.width < 1_100 {
             showsWorkbench = false
         }
     }
@@ -228,6 +232,7 @@ struct CodexPadRootView: View {
         }
         didConfigureInitialLayout = true
         showsWorkbench = !shouldPrioritizeConversation
+            && UIScreen.main.bounds.width >= 1_100
     }
 
     private var shouldPrioritizeConversation: Bool {
