@@ -16,6 +16,11 @@ install -m 0644 \
   "$compatibility_sources/v8_init_unavailable.rs" \
   code-mode/src/v8_init_unavailable.rs
 
+# OpenSSL 3 probes 64-bit lock-free atomics on i386 through
+# __atomic_is_lock_free, which Zig's musl runtime does not export. This
+# upstream-supported guard selects OpenSSL's existing RWLock fallback instead.
+export CFLAGS="${CFLAGS:+$CFLAGS }-DBROKEN_CLANG_ATOMICS"
+
 cargo zigbuild \
   --locked \
   --release \

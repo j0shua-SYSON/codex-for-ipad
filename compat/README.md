@@ -4,7 +4,7 @@ CodexPad builds upstream Codex for iSH's `i686-unknown-linux-musl` guest. The
 compatibility patch is intentionally small and applied only in the hosted build
 checkout; the sibling/upstream Codex repository is never modified in place.
 
-The layer currently does four target-specific things:
+The layer currently does five target-specific things:
 
 1. builds OpenSSL from source and selects BLAKE3's portable implementation;
 2. excludes Rusty V8 on 32-bit musl because upstream publishes no matching V8
@@ -15,7 +15,9 @@ The layer currently does four target-specific things:
 4. compiles out the unsupported 32-bit seccomp filter. CodexPad deliberately
    requests `danger-full-access` only inside the iSH guest, keeps native
    approvals `on-request`, and relies on the iPad application container as the
-   operating-system boundary.
+   operating-system boundary; and
+5. selects OpenSSL's built-in lock fallback because Zig's i386 musl runtime
+   does not export the `__atomic_is_lock_free` probe used for 64-bit atomics.
 
 Normal Codex app-server operation, tools, approvals, MCP, threads, and turns use
 the upstream implementation. Weekly update pull requests must apply this patch,
@@ -28,3 +30,6 @@ musl artifact or Codex makes that runtime portable to the iSH target.
 Delete the seccomp stub if iSH and upstream seccompiler gain a usable 32-bit x86
 implementation. Until then, do not describe the guest itself as a security
 container: approved tools can access everything exposed in its root.
+
+Delete the OpenSSL compiler guard when the i386 musl linker supplies the atomic
+probe or OpenSSL no longer emits it on this target.
