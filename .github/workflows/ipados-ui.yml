@@ -24,9 +24,26 @@ concurrency:
 
 jobs:
   smoke:
-    name: Native iPad workspace smoke test
+    name: Native iPad workspace smoke test (${{ matrix.profile }})
     runs-on: macos-26
     timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - profile: 11-inch-standard
+            device_hint: 11-inch
+            content_size: large
+            appearance: light
+          - profile: mini-accessibility
+            device_hint: mini
+            content_size: accessibility-extra-extra-large
+            appearance: dark
+
+    env:
+      DEVICE_HINT: ${{ matrix.device_hint }}
+      CONTENT_SIZE: ${{ matrix.content_size }}
+      APPEARANCE: ${{ matrix.appearance }}
 
     steps:
       - name: Check out CodexPad
@@ -48,6 +65,7 @@ jobs:
           udid="$(python3 - <<'PY'
           import json
           from pathlib import Path
+          import os
 
           devices = json.loads(Path("artifacts/simulators.json").read_text())["devices"]
           candidates = [
@@ -58,7 +76,11 @@ jobs:
           ]
           if not candidates:
               raise SystemExit("No available iPad simulator")
-          preferred = next((d for d in candidates if "11-inch" in d["name"]), candidates[0])
+          hint = os.environ["DEVICE_HINT"].casefold()
+          preferred = next((d for d in candidates if hint in d["name"].casefold()), None)
+          if preferred is None:
+              available = ", ".join(sorted(d["name"] for d in candidates))
+              raise SystemExit(f"No iPad simulator matching {hint!r}; available: {available}")
           print(preferred["udid"])
           print(f"Selected {preferred['name']} ({preferred['udid']})", file=__import__('sys').stderr)
           PY
@@ -66,6 +88,8 @@ jobs:
           echo "SIMULATOR_UDID=$udid" >> "$GITHUB_ENV"
           xcrun simctl boot "$udid" 2>/dev/null || true
           xcrun simctl bootstatus "$udid" -b
+          xcrun simctl ui "$udid" content_size "$CONTENT_SIZE"
+          xcrun simctl ui "$udid" appearance "$APPEARANCE"
 
       - name: Run native workspace UI test
         shell: bash
@@ -100,7 +124,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: CodexPad-iPadOS-UI-results
+          name: CodexPad-iPadOS-UI-${{ matrix.profile }}
           path: |
             artifacts/CodexPad-UI.xcresult
             artifacts/diagnostics
