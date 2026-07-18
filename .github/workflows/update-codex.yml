@@ -1,0 +1,113 @@
+name: Propose Codex update
+
+on:
+  schedule:
+    - cron: "23 4 * * 1"
+  workflow_dispatch:
+    inputs:
+      revision:
+        description: Optional exact openai/codex commit
+        required: false
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  discover:
+    name: Discover upstream revision
+    runs-on: ubuntu-24.04
+    outputs:
+      changed: ${{ steps.resolve.outputs.changed }}
+      revision: ${{ steps.resolve.outputs.revision }}
+      rust_toolchain: ${{ steps.resolve.outputs.rust_toolchain }}
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          persist-credentials: false
+
+      - id: resolve
+        name: Resolve latest compatible inputs
+        shell: bash
+        env:
+          REQUESTED_REVISION: ${{ inputs.revision }}
+        run: |
+          set -euo pipefail
+          repository="$(jq -r '.codex.repository' Dependencies/upstreams.json)"
+          current="$(jq -r '.codex.revision' Dependencies/upstreams.json)"
+          revision="${REQUESTED_REVISION:-$(git ls-remote "https://github.com/$repository.git" refs/heads/main | cut -f1)}"
+          [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          toolchain_file="$(curl --proto '=https' --tlsv1.2 -fsSL \
+            "https://raw.githubusercontent.com/$repository/$revision/codex-rs/rust-toolchain.toml")"
+          toolchain="$(sed -n 's/^channel = "\([^"]*\)"/\1/p' <<< "$toolchain_file")"
+          [[ "$toolchain" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]
+          echo "revision=$revision" >> "$GITHUB_OUTPUT"
+          echo "rust_toolchain=$toolchain" >> "$GITHUB_OUTPUT"
+          if [[ "$revision" == "$current" ]]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  compatibility:
+    name: Verify candidate on iSH
+    needs: discover
+    if: needs.discover.outputs.changed == 'true'
+    uses: ./.github/workflows/codex-i686.yml
+    with:
+      codex_revision: ${{ needs.discover.outputs.revision }}
+      rust_toolchain: ${{ needs.discover.outputs.rust_toolchain }}
+
+  propose:
+    name: Open verified update PR
+    needs: [discover, compatibility]
+    if: needs.discover.outputs.changed == 'true'
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Update the single source of truth
+        shell: bash
+        env:
+          REVISION: ${{ needs.discover.outputs.revision }}
+          RUST_TOOLCHAIN: ${{ needs.discover.outputs.rust_toolchain }}
+        run: |
+          set -euo pipefail
+          jq --arg revision "$REVISION" --arg rust "$RUST_TOOLCHAIN" \
+            '.codex.revision = $revision | .codex.rustToolchain = $rust' \
+            Dependencies/upstreams.json > Dependencies/upstreams.json.next
+          mv Dependencies/upstreams.json.next Dependencies/upstreams.json
+
+      - name: Commit candidate
+        id: commit
+        shell: bash
+        env:
+          REVISION: ${{ needs.discover.outputs.revision }}
+        run: |
+          set -euo pipefail
+          short="${REVISION:0:12}"
+          branch="automation/codex-$short-$GITHUB_RUN_NUMBER"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git switch -c "$branch"
+          git add Dependencies/upstreams.json
+          git commit -m "Update Codex to $short"
+          git push --set-upstream origin "$branch"
+          echo "branch=$branch" >> "$GITHUB_OUTPUT"
+          echo "short=$short" >> "$GITHUB_OUTPUT"
+
+      - name: Open pull request
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.commit.outputs.branch }}
+          SHORT: ${{ steps.commit.outputs.short }}
+          REVISION: ${{ needs.discover.outputs.revision }}
+          RUST_TOOLCHAIN: ${{ needs.discover.outputs.rust_toolchain }}
+        run: |
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "Update Codex to $SHORT" \
+            --body "Updates the pinned openai/codex revision to \`$REVISION\` and Rust to \`$RUST_TOOLCHAIN\`. The i686-musl app-server compatibility build passed in run $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
