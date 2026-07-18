@@ -24,6 +24,16 @@
     XCUIElement *workspace = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.workspace"];
     XCTAssertTrue([workspace waitForExistenceWithTimeout:15]);
     XCTAssertTrue([app.keyboards.firstMatch waitForNonExistenceWithTimeout:5]);
+
+    NSString *workbenchExpectation = NSProcessInfo.processInfo.environment[@"CODEXPAD_EXPECTS_WORKBENCH"];
+    BOOL expectsWorkbench = workbenchExpectation == nil || workbenchExpectation.boolValue;
+    XCUIElement *workbench = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.workbench"];
+    if (expectsWorkbench) {
+        XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
+    } else {
+        XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
+    }
+
     XCTAssertTrue([app.staticTexts[@"Make the repository update-safe"] exists]);
     XCTAssertTrue([app.buttons[@"codexpad.new-thread"] exists]);
     XCTAssertTrue([app.buttons[@"codexpad.terminal"] exists]);
