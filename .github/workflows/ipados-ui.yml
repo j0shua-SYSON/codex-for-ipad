@@ -86,12 +86,30 @@ jobs:
             -parallel-testing-enabled NO \
             CODE_SIGNING_ALLOWED=NO
 
+      - name: Capture simulator diagnostics
+        if: failure()
+        shell: bash
+        run: |
+          set +e
+          mkdir -p artifacts/diagnostics
+          xcrun simctl spawn "$SIMULATOR_UDID" log show \
+            --last 20m \
+            --style compact \
+            --predicate 'process == "CodexPad" OR process == "iSHUITests-Runner"' \
+            > artifacts/diagnostics/simulator.log 2>&1
+          find "$HOME/Library/Logs/DiagnosticReports" \
+            -maxdepth 1 -type f \
+            \( -name 'CodexPad*' -o -name 'iSH*' \) \
+            -exec cp '{}' artifacts/diagnostics/ \;
+
       - name: Upload UI test evidence
         if: always()
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: CodexPad-iPadOS-UI-results
-          path: artifacts/CodexPad-UI.xcresult
+          path: |
+            artifacts/CodexPad-UI.xcresult
+            artifacts/diagnostics
           if-no-files-found: warn
           compression-level: 6
           retention-days: 14
