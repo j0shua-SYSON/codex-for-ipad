@@ -21,9 +21,11 @@ base_archive="$work_dir/base-rootfs.tar.gz"
 mkdir -p "$root_dir"
 
 rootfs_url="$(jq -r '.alpine.rootfsUrl' "$project_root/Dependencies/upstreams.json")"
-codex_revision="$(jq -r '.codex.revision' "$project_root/Dependencies/upstreams.json")"
+codex_revision="${CODEX_REVISION:-$(jq -r '.codex.revision' "$project_root/Dependencies/upstreams.json")}"
 ish_revision="$(jq -r '.ish.revision' "$project_root/Dependencies/upstreams.json")"
 alpine_release="$(jq -r '.alpine.release' "$project_root/Dependencies/upstreams.json")"
+codex_source_dir="${CODEX_SOURCE_DIR:-$project_root/upstream/codex}"
+test -f "$codex_source_dir/LICENSE"
 
 curl --proto '=https' --tlsv1.2 --fail --location --silent --show-error \
     "$rootfs_url" --output "$base_archive"
@@ -48,6 +50,10 @@ install -d -m 0755 "$root_dir/etc/runlevels/default"
 ln -s /etc/init.d/codexpad "$root_dir/etc/runlevels/default/codexpad"
 
 install -d -m 0755 "$root_dir/usr/local/share/codexpad"
+install -D -m 0644 "$codex_source_dir/LICENSE" \
+    "$root_dir/usr/local/share/licenses/codex/LICENSE"
+install -D -m 0644 "$project_root/THIRD_PARTY_NOTICES.md" \
+    "$root_dir/usr/local/share/codexpad/THIRD_PARTY_NOTICES.md"
 jq -n \
     --arg codexRevision "$codex_revision" \
     --arg ishRevision "$ish_revision" \

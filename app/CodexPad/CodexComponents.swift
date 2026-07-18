@@ -320,13 +320,25 @@ struct ApprovalRequestCard: View {
 
     @ViewBuilder
     private var actionButtons: some View {
-        Button("Allow once") { resolve(.once) }
-            .buttonStyle(.borderedProminent)
-            .tint(CodexPalette.cobalt)
-        Button("Allow for thread") { resolve(.session) }
-            .buttonStyle(.bordered)
-        Button("Don’t allow", role: .destructive) { resolve(.decline) }
-            .buttonStyle(.bordered)
+        switch request.kind {
+        case .elicitation:
+            Button("Decline") { resolve(.decline) }
+                .buttonStyle(.borderedProminent)
+                .tint(CodexPalette.cobalt)
+            Button("Cancel request", role: .cancel) { resolve(.cancel) }
+                .buttonStyle(.bordered)
+        case .unsupported:
+            Button("Dismiss") { resolve(.decline) }
+                .buttonStyle(.bordered)
+        default:
+            Button("Allow once") { resolve(.once) }
+                .buttonStyle(.borderedProminent)
+                .tint(CodexPalette.cobalt)
+            Button("Allow for thread") { resolve(.session) }
+                .buttonStyle(.bordered)
+            Button("Don’t allow", role: .destructive) { resolve(.decline) }
+                .buttonStyle(.bordered)
+        }
     }
 }
 

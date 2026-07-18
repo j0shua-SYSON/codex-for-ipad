@@ -143,6 +143,7 @@ private struct ComposerBar: View {
                             .stroke(isFocused ? CodexPalette.cobalt : CodexPalette.line, lineWidth: isFocused ? 1.5 : 0.5)
                     }
                     .accessibilityLabel("Message Codex")
+                    .accessibilityIdentifier("codexpad.composer")
 
                 if model.isTurnRunning {
                     Button {
@@ -168,6 +169,7 @@ private struct ComposerBar: View {
                     .disabled(model.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityLabel("Send message")
+                    .accessibilityIdentifier("codexpad.send")
                 }
             }
             HStack {

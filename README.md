@@ -1,69 +1,58 @@
-# [iSH](https://ish.app)
+# CodexPad
 
-[![Build Status](https://github.com/ish-app/ish/actions/workflows/ci.yml/badge.svg)](https://github.com/ish-app/ish/actions)
-[![goto counter](https://img.shields.io/github/search/ish-app/ish/goto.svg)](https://github.com/ish-app/ish/search?q=goto)
-[![fuck counter](https://img.shields.io/github/search/ish-app/ish/fuck.svg)](https://github.com/ish-app/ish/search?q=fuck)
-[![shit counter](https://img.shields.io/github/search/ish-app/ish/shit.svg)](https://github.com/ish-app/ish/search?q=shit)
+[![Codex i686 compatibility](https://github.com/j0shua-SYSON/codex-for-ipad/actions/workflows/codex-i686.yml/badge.svg)](https://github.com/j0shua-SYSON/codex-for-ipad/actions/workflows/codex-i686.yml)
+[![iSH core CI](https://github.com/j0shua-SYSON/codex-for-ipad/actions/workflows/ci.yml/badge.svg)](https://github.com/j0shua-SYSON/codex-for-ipad/actions/workflows/ci.yml)
+[![iPadOS UI](https://github.com/j0shua-SYSON/codex-for-ipad/actions/workflows/ipados-ui.yml/badge.svg)](https://github.com/j0shua-SYSON/codex-for-ipad/actions/workflows/ipados-ui.yml)
+[![Public repository](https://img.shields.io/badge/repository-public-0969da)](https://github.com/j0shua-SYSON/codex-for-ipad)
 
-<p align="center">
-<a href="https://ish.app">
-<img src="https://ish.app/assets/github-readme.png">
-</a>
-</p>
+CodexPad is a native iPadOS workspace for the open-source Codex coding agent. It pairs a SwiftUI interface with the real upstream `codex-app-server`, running as a static 32-bit Linux executable inside an embedded iSH/Alpine environment.
 
-A project to get a Linux shell running on iOS, using usermode x86 emulation and syscall translation.
+This is an independent community port, not an official OpenAI or iSH app. It is under active development and is not yet an App Store release.
 
-For the current status of the project, check the issues tab, and the commit logs.
+## What runs locally
 
-- [App Store page](https://apps.apple.com/us/app/ish-shell/id1436902243)
-- [TestFlight beta](https://testflight.apple.com/join/97i7KM8O)
-- [Discord server](https://discord.gg/HFAXj44)
-- [Wiki with help and tutorials](https://github.com/ish-app/ish/wiki)
-- [README中文](https://github.com/ish-app/ish/blob/master/README_ZH.md) (如若未能保持最新，请提交PR以更新)
+- Codex agent orchestration, shell commands, Git, patches, and workspace files run on the iPad.
+- The native UI talks to the guest only through `ws://127.0.0.1:4500`.
+- The iSH terminal remains available as a recovery and advanced-work surface.
+- Model inference still uses the provider configured in Codex and therefore normally requires network access. CodexPad is not claiming offline on-device LLM inference.
 
-# Hacking
+## Native workspace
 
-This project has a git submodule, make sure to clone with `--recurse-submodules` or run `git submodule update --init` after cloning.
+The interface uses a three-column `NavigationSplitView`: recent threads, a semantic activity timeline, and a workbench for plans, diffs, files, and runtime diagnostics. It includes native command/file/permission approvals, `request_user_input`, account sign-in, keyboard shortcuts, pointer-friendly system controls, Dynamic Type, VoiceOver labels, dark mode, and compact-width adaptation.
 
-You'll need these things to build the project:
+See [the HIG release checklist](docs/HIG_CHECKLIST.md) and [the architecture](docs/ARCHITECTURE.md) for the design and platform boundaries.
 
- - Python 3
-   + Meson (`pip3 install meson`)
- - Ninja
- - Clang and LLD (on mac, `brew install llvm`, on linux, `sudo apt install clang lld` or `sudo pacman -S clang lld` or whatever)
- - sqlite3 (this is so common it may already be installed on linux and is definitely already installed on mac. if not, do something like `sudo apt install libsqlite3-dev`)
- - libarchive (`brew install libarchive`, `sudo port install libarchive`, `sudo apt install libarchive-dev`) TODO: bundle this dependency
+## Reproducible build
 
-## Build for iOS
+Windows contributors do not need Xcode, Rust, Zig, Docker, or local package installs. Run **Codex i686 compatibility** from the repository's Actions tab. The workflow:
 
-Open the project in Xcode, open iSH.xcconfig, and change `ROOT_BUNDLE_IDENTIFIER` to something unique. You'll also need to update the development team ID in the project (not target!) build settings. Then click Run. There are scripts that should do everything else automatically. If you run into any problems, open an issue and I'll try to help.
+1. fetches the exact Codex and iSH revisions in `Dependencies/upstreams.json`;
+2. applies the small i686-musl compatibility patch;
+3. cross-compiles `codex-app-server` with the upstream-pinned Rust toolchain;
+4. builds a pinned Alpine x86 image with Git, ripgrep, Python, SSH, and the local OpenRC service;
+5. builds an unsigned arm64 iPadOS app containing that verified image; and
+6. uploads the runtime and unsigned app as workflow artifacts.
 
-## Build command line tool for testing
+Signing and installation require your own Apple development identity. The unsigned artifact is intended for verification and downstream signing; it cannot be installed directly on a stock iPad.
 
-To set up your environment, cd to the project and run `meson build` to create a build directory in `build`. Then cd to the build directory and run `ninja`.
+For a Mac build, clone with submodules and open `iSH.xcodeproj`. Pass `CODEXPAD_ROOTFS_PATH=/absolute/path/to/codexpad-rootfs.tar.gz` as an Xcode build setting to embed a verified runtime image.
 
-To set up a self-contained Alpine linux filesystem, download the Alpine minirootfs tarball for i386 from the [Alpine website](https://alpinelinux.org/downloads/) and run `./tools/fakefsify`, with the minirootfs tarball as the first argument and the name of the output directory as the second argument. Then you can run things inside the Alpine filesystem with `./ish -f alpine /bin/sh`, assuming the output directory is called `alpine`. If `tools/fakefsify` doesn't exist for you in your build directory, that might be because it couldn't find libarchive on your system (see above for ways to install it.)
+## Clean upstream updates
 
-You can replace `ish` with `tools/ptraceomatic` to run the program in a real process and single step and compare the registers at each step. I use it for debugging. Requires 64-bit Linux 4.11 or later.
+The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patch, builds the complete i686 runtime and iPad app, and only then opens a pin-update pull request. Additive protocol fields are decoded tolerantly; breaking schema or target changes fail the gate instead of silently shipping a partial port.
 
-## Logging
+Platform-specific files stay in `app/CodexPad`, `runtime`, `patches`, and the build workflows. The imported iSH core and upstream Codex checkout are not edited in place.
 
-iSH has several logging channels which can be enabled at build time. By default, all of them are disabled. To enable them:
+The small target layer is documented in [`compat/README.md`](compat/README.md). It is deliberately isolated so a future upstream implementation can replace it without forking Codex's application logic.
 
-- In Xcode: Set the `ISH_LOG` setting in iSH.xcconfig to a space-separated list of log channels.
-- With Meson (command line tool for testing): Run `meson configure -Dlog="<space-separated list of log channels>"`.
+## Platform limits
 
-Available channels:
+- iPadOS can suspend long-running turns when the app leaves the foreground.
+- iSH's x86 emulation is slower than native desktop execution.
+- Large toolchains must fit the iPad's storage and be available for Alpine x86.
+- Experimental Code Mode is disabled by default upstream and reports a clear platform error on CodexPad because Rusty V8 has no published i686-musl library. Normal app-server tools and agent turns do not use this subsystem.
+- The app-server WebSocket transport is currently marked experimental upstream, so every Codex update is compatibility-gated.
 
-- `strace`: The most useful channel, logs the parameters and return value of almost every system call.
-- `instr`: Logs every instruction executed by the emulator. This slows things down a lot.
-- `verbose`: Debug logs that don't fit into another category.
-- Grep for `DEFAULT_CHANNEL` to see if more log channels have been added since this list was updated.
+## License
 
-# A note on the interpreter
-
-Possibly the most interesting thing I wrote as part of iSH is the interpreter. It's not quite a JIT since it doesn't target machine code. Instead it generates an array of pointers to functions called gadgets, and each gadget ends with a tailcall to the next function; like the threaded code technique used by some Forth interpreters. The result is a speedup of roughly 3-5x compared to emulation using a simpler switch dispatch.
-
-Unfortunately, I made the decision to write nearly all of the gadgets in assembly language. This was probably a good decision with regards to performance (though I'll never know for sure), but a horrible decision with regards to readability, maintainability, and my sanity. The amount of bullshit I've had to put up with from the compiler/assembler/linker is insane. It's like there's a demon in there that makes sure my code is sufficiently deformed, and if not, makes up stupid reasons why it shouldn't compile. In order to stay sane while writing this code, I've had to ignore best practices in code structure and naming. You'll find macros and variables with such descriptive names as `ss` and `s` and `a`. Assembler macros nested beyond belief. And to top it off, there are almost no comments.
-
-So a warning: Long-term exposure to this code may cause loss of sanity, nightmares about GAS macros and linker errors, or any number of other debilitating side effects. This code is known to the State of California to cause cancer, birth defects, and reproductive harm.
+This derivative app remains under iSH's GPL terms and its additional iOS distribution permission; see `LICENSE.md` and `LICENSE.IOS`. The bundled Codex executable is Apache-2.0. Exact attribution and source links are in `THIRD_PARTY_NOTICES.md` and are copied into every runtime image.
