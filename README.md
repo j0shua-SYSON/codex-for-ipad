@@ -14,6 +14,7 @@ This is an independent community port, not an official OpenAI or iSH app. It is 
 - Codex agent orchestration, shell commands, Git, patches, and workspace files run on the iPad.
 - The native UI talks to the guest only through `ws://127.0.0.1:4500`.
 - The iSH terminal remains available as a recovery and advanced-work surface.
+- Agent threads use Codex's `danger-full-access` mode inside the private iSH guest because iSH cannot enforce the desktop Linux seccomp/namespace sandbox. Native command and file-change approvals remain `on-request`; the iPad app container is the outer operating-system boundary.
 - Model inference still uses the provider configured in Codex and therefore normally requires network access. CodexPad is not claiming offline on-device LLM inference.
 
 ## Native workspace
@@ -51,6 +52,7 @@ The small target layer is documented in [`compat/README.md`](compat/README.md). 
 - iSH's x86 emulation is slower than native desktop execution.
 - Large toolchains must fit the iPad's storage and be available for Alpine x86.
 - Experimental Code Mode is disabled by default upstream and reports a clear platform error on CodexPad because Rusty V8 has no published i686-musl library. Normal app-server tools and agent turns do not use this subsystem.
+- iSH is a compatibility environment, not a secure container. Codex tools can read and modify everything exposed inside the selected guest root after approval; do not place untrusted secrets in that root.
 - The app-server WebSocket transport is currently marked experimental upstream, so every Codex update is compatibility-gated.
 
 ## License
