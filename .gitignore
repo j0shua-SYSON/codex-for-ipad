@@ -18,3 +18,12 @@ fastlane/screenshots
 fastlane/test_output
 
 e2e_out/
+
+# CodexPad developer state. Keep all generated data on the workspace drive.
+.openai-docs-cache/
+.gh-config/
+.codex-local/
+DerivedData/
+artifacts/
+rootfs-staging/
+*.xcresult

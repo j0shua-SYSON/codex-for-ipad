@@ -1,0 +1,86 @@
+name: Codex i686 compatibility
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/codex-i686.yml"
+      - "scripts/build-codex-i686.sh"
+      - "docs/ARCHITECTURE.md"
+  pull_request:
+    branches: [main]
+    paths:
+      - ".github/workflows/codex-i686.yml"
+      - "scripts/build-codex-i686.sh"
+
+permissions:
+  contents: read
+
+env:
+  CODEX_REVISION: 6bd3f5e3db8275c10c7e4bbcc1342c32a89b7eee
+  RUST_TOOLCHAIN: 1.95.0
+  CARGO_TARGET_DIR: ${{ github.workspace }}/artifacts/cargo-target
+  CARGO_HOME: ${{ github.workspace }}/.codex-local/cargo
+  RUSTUP_HOME: ${{ github.workspace }}/.codex-local/rustup
+
+jobs:
+  app-server:
+    name: Build Codex app-server for iSH
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Check out CodexPad
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+
+      - name: Check out pinned Codex source
+        uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
+        with:
+          repository: openai/codex
+          ref: ${{ env.CODEX_REVISION }}
+          path: upstream/codex
+          persist-credentials: false
+
+      - name: Install pinned Rust toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
+            | sh -s -- -y --profile minimal --default-toolchain "$RUST_TOOLCHAIN" \
+                --target i686-unknown-linux-musl
+          echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
+
+      - name: Install Zig
+        uses: mlugg/setup-zig@d1434d08867e3ee9daa34448df10607b98908d29 # v2.2.1
+        with:
+          version: 0.14.1
+
+      - name: Install cargo-zigbuild
+        shell: bash
+        run: cargo install cargo-zigbuild --locked
+
+      - name: Cross-compile app-server
+        working-directory: upstream/codex/codex-rs
+        shell: bash
+        run: $GITHUB_WORKSPACE/scripts/build-codex-i686.sh
+
+      - name: Inspect binary
+        shell: bash
+        run: |
+          set -euo pipefail
+          binary="$CARGO_TARGET_DIR/i686-unknown-linux-musl/release/codex-app-server"
+          file "$binary"
+          test "$(od -An -tu1 -j4 -N1 "$binary" | tr -d ' ')" = "1"
+          sha256sum "$binary" | tee artifacts/codex-app-server.sha256
+
+      - name: Upload iSH runtime
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: codex-app-server-i686-musl
+          path: |
+            artifacts/cargo-target/i686-unknown-linux-musl/release/codex-app-server
+            artifacts/codex-app-server.sha256
+          if-no-files-found: error
+          compression-level: 9
+          retention-days: 14
