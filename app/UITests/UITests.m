@@ -54,7 +54,9 @@
     XCTAssertTrue([composer exists]);
     XCTAssertTrue([composer isHittable]);
 
-    [app.buttons[@"codexpad.terminal"] tap];
+    XCUIElement *terminalButton = app.buttons[@"codexpad.terminal"];
+    XCTAssertTrue([terminalButton isHittable]);
+    [terminalButton tap];
     XCUIElement *returnButton = app.buttons[@"codexpad.return-to-workspace"];
     XCTAssertTrue([returnButton waitForExistenceWithTimeout:5]);
     [returnButton tap];
