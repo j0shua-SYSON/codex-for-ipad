@@ -6,9 +6,10 @@ struct CodexFeatureCenterView: View {
 
     @State private var selection: String? = "thread/start"
     @State private var searchText = ""
+    @State private var preferredCompactColumn: NavigationSplitViewColumn = .sidebar
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(preferredCompactColumn: $preferredCompactColumn) {
             List(selection: $selection) {
                 Section {
                     VStack(alignment: .leading, spacing: 5) {
@@ -24,6 +25,7 @@ struct CodexFeatureCenterView: View {
                     }
                     .padding(.vertical, 4)
                     .accessibilityElement(children: .combine)
+                    .accessibilityIdentifier("codexpad.feature-summary")
                 }
 
                 ForEach(CodexFeatureCategory.allCases) { category in
