@@ -11,6 +11,8 @@
 - (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench;
 - (XCUIElement *)hittableButtonWithIdentifier:(NSString *)identifier
                                 inApplication:(XCUIApplication *)app;
+- (XCUIElement *)hittableButtonWithLabelContaining:(NSString *)fragment
+                                      inApplication:(XCUIApplication *)app;
 @end
 
 @implementation UITests
@@ -116,6 +118,19 @@
     if (expectsWorkbench) {
         XCUIElement *settings = [self hittableButtonWithIdentifier:@"codexpad.settings"
                                                      inApplication:app];
+        if (settings == nil) {
+            // At 11-inch portrait widths, NavigationSplitView correctly
+            // collapses its sidebar while retaining the inspector. Exercise
+            // the visible system sidebar control before opening Settings.
+            XCUIElement *sidebarToggle = [self hittableButtonWithLabelContaining:@"sidebar"
+                                                                    inApplication:app];
+            XCTAssertNotNil(sidebarToggle);
+            [sidebarToggle tap];
+            XCUIElement *settingsCandidate = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.settings"];
+            XCTAssertTrue([settingsCandidate waitForExistenceWithTimeout:5]);
+            settings = [self hittableButtonWithIdentifier:@"codexpad.settings"
+                                             inApplication:app];
+        }
         XCTAssertNotNil(settings);
         [settings tap];
         XCTAssertTrue([app.navigationBars[@"Settings"] waitForExistenceWithTimeout:5]);
@@ -177,6 +192,19 @@
     // element first, even though the visible toolbar control is actionable.
     // Walk every match and exercise the same control a user can actually tap.
     XCUIElementQuery *matches = [app.buttons matchingIdentifier:identifier];
+    for (NSUInteger index = 0; index < matches.count; index++) {
+        XCUIElement *candidate = [matches elementBoundByIndex:index];
+        if (candidate.isHittable) {
+            return candidate;
+        }
+    }
+    return nil;
+}
+
+- (XCUIElement *)hittableButtonWithLabelContaining:(NSString *)fragment
+                                      inApplication:(XCUIApplication *)app {
+    NSPredicate *predicate = [NSPredicate predicateWithFormat:@"label CONTAINS[c] %@", fragment];
+    XCUIElementQuery *matches = [app.buttons matchingPredicate:predicate];
     for (NSUInteger index = 0; index < matches.count; index++) {
         XCUIElement *candidate = [matches elementBoundByIndex:index];
         if (candidate.isHittable) {
