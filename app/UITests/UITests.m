@@ -224,6 +224,15 @@
     }
     [terminalButton tap];
     XCUIElement *returnButton = app.buttons[@"codexpad.return-to-workspace"];
+    if (![returnButton waitForExistenceWithTimeout:3]) {
+        // Simulator accessibility services can occasionally acknowledge a
+        // synthesized toolbar tap without delivering its action. Re-resolve
+        // the still-visible control and require the real terminal transition.
+        terminalButton = [self hittableButtonWithIdentifier:@"codexpad.terminal"
+                                               inApplication:app];
+        XCTAssertNotNil(terminalButton);
+        [terminalButton tap];
+    }
     XCTAssertTrue([returnButton waitForExistenceWithTimeout:5]);
     [returnButton tap];
     XCTAssertTrue([workspace waitForExistenceWithTimeout:5]);
