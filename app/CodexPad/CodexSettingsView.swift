@@ -190,7 +190,10 @@ struct CodexSettingsView: View {
                     Text("Waiting for Files selection...")
                 }
             case .linked(let name):
-                LabeledContent("Linked folder", value: name)
+                LabeledContent("Linked folder") {
+                    Text(name)
+                        .accessibilityIdentifier("codexpad.linked-folder-name")
+                }
                 Button("Unlink Files folder", role: .destructive) {
                     confirmsUnlink = true
                 }
