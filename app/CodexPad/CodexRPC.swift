@@ -67,8 +67,7 @@ final class CodexRPCClient: ObservableObject {
                         "version": .string(Bundle.main.releaseVersion)
                     ]),
                     "capabilities": .object([
-                        "experimentalApi": .bool(true),
-                        "mcpServerOpenaiFormElicitation": .bool(true)
+                        "experimentalApi": .bool(true)
                     ])
                 ])
             )
