@@ -17,7 +17,7 @@ struct CodexPadRootView: View {
         adaptiveWorkspace
         .inspector(isPresented: $showsWorkbench) {
             CodexWorkbenchView(model: model)
-                .inspectorColumnWidth(min: 320, ideal: 420, max: 520)
+                .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
         }
         .accessibilityIdentifier("codexpad.workspace")
         .tint(CodexPalette.cobalt)
