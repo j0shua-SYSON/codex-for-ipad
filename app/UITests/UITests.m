@@ -8,7 +8,7 @@
 #import <XCTest/XCTest.h>
 
 @interface UITests : XCTestCase
-- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench;
+- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench expectingSidebar:(BOOL)expectsSidebar;
 @end
 
 @implementation UITests
@@ -18,14 +18,14 @@
 }
 
 - (void)testCodexPadStandardWorkspaceAndTerminalRecovery {
-    [self exerciseCodexPadExpectingWorkbench:YES];
+    [self exerciseCodexPadExpectingWorkbench:YES expectingSidebar:YES];
 }
 
 - (void)testCodexPadAccessibilityWorkspaceAndTerminalRecovery {
-    [self exerciseCodexPadExpectingWorkbench:NO];
+    [self exerciseCodexPadExpectingWorkbench:NO expectingSidebar:NO];
 }
 
-- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench {
+- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench expectingSidebar:(BOOL)expectsSidebar {
     XCUIApplication *app = [[XCUIApplication alloc] init];
     app.launchArguments = @[@"--codexpad-demo"];
     [app launch];
@@ -39,6 +39,13 @@
         XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
     } else {
         XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
+    }
+
+    XCUIElement *sidebar = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.sidebar"];
+    if (expectsSidebar) {
+        XCTAssertTrue([sidebar waitForExistenceWithTimeout:5]);
+    } else {
+        XCTAssertTrue([sidebar waitForNonExistenceWithTimeout:5]);
     }
 
     XCTAssertTrue([app.staticTexts[@"Make the repository update-safe"] exists]);
@@ -59,6 +66,11 @@
         XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
     } else {
         XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
+    }
+    if (expectsSidebar) {
+        XCTAssertTrue([sidebar waitForExistenceWithTimeout:5]);
+    } else {
+        XCTAssertTrue([sidebar waitForNonExistenceWithTimeout:5]);
     }
 
     XCTAttachment *screenshot = [XCTAttachment attachmentWithScreenshot:XCUIScreen.mainScreen.screenshot];
