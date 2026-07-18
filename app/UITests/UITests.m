@@ -132,7 +132,10 @@
         }
         XCTAssertTrue(folderButton.isHittable);
         [folderButton tap];
-        XCTAssertTrue([app.staticTexts[@"CodexPad Demo"] waitForExistenceWithTimeout:5]);
+        XCUIElement *linkedFolderName = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.linked-folder-name"];
+        XCTAssertTrue([linkedFolderName waitForExistenceWithTimeout:5]);
+        XCTAssertEqualObjects(linkedFolderName.label, @"CodexPad Demo");
+        XCTAssertTrue([app.buttons[@"Unlink Files folder"] waitForExistenceWithTimeout:5]);
         [app.buttons[@"Done"] tap];
         XCTAssertTrue([app.buttons[@"codexpad.features"] waitForExistenceWithTimeout:5]);
     }
