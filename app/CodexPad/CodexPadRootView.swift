@@ -8,12 +8,13 @@ struct CodexPadRootView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var columnVisibility: NavigationSplitViewVisibility = .automatic
     @State private var showsWorkbench = false
     @State private var didConfigureInitialLayout = false
     @State private var searchText = ""
 
     var body: some View {
-        NavigationSplitView {
+        NavigationSplitView(columnVisibility: $columnVisibility) {
             sidebar
         } detail: {
             CodexConversationView(model: model)
@@ -142,7 +143,10 @@ struct CodexPadRootView: View {
 
     private func prioritizeConversationIfNeeded() {
         if shouldPrioritizeConversation {
+            columnVisibility = .detailOnly
             showsWorkbench = false
+        } else {
+            columnVisibility = .all
         }
     }
 
@@ -152,6 +156,7 @@ struct CodexPadRootView: View {
             return
         }
         didConfigureInitialLayout = true
+        columnVisibility = shouldPrioritizeConversation ? .detailOnly : .all
         showsWorkbench = !shouldPrioritizeConversation
     }
 

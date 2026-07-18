@@ -4,8 +4,8 @@ This checklist is a release gate for CodexPad.
 
 ## Structure and adaptation
 
-- Use `NavigationSplitView` for the thread sidebar, conversation, and optional workbench inspector.
-- Preserve selection across column changes and hide the inspector before collapsing the primary navigation.
+- Use `NavigationSplitView` for the thread sidebar and conversation, with the optional workbench in a native inspector.
+- Preserve selection across column changes; at constrained widths or accessibility text sizes, hide the inspector and collapse the sidebar so the conversation remains usable.
 - Test full screen, half, third, quarter, portrait, landscape, and Stage Manager window sizes.
 - Keep content inside safe areas and use system bars, sheets, menus, and popovers for their standard roles.
 
