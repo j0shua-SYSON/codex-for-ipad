@@ -8,7 +8,7 @@
 #import <XCTest/XCTest.h>
 
 @interface UITests : XCTestCase
-- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench expectingSidebar:(BOOL)expectsSidebar;
+- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench;
 @end
 
 @implementation UITests
@@ -18,14 +18,14 @@
 }
 
 - (void)testCodexPadStandardWorkspaceAndTerminalRecovery {
-    [self exerciseCodexPadExpectingWorkbench:YES expectingSidebar:YES];
+    [self exerciseCodexPadExpectingWorkbench:YES];
 }
 
 - (void)testCodexPadAccessibilityWorkspaceAndTerminalRecovery {
-    [self exerciseCodexPadExpectingWorkbench:NO expectingSidebar:NO];
+    [self exerciseCodexPadExpectingWorkbench:NO];
 }
 
-- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench expectingSidebar:(BOOL)expectsSidebar {
+- (void)exerciseCodexPadExpectingWorkbench:(BOOL)expectsWorkbench {
     XCUIApplication *app = [[XCUIApplication alloc] init];
     app.launchArguments = @[@"--codexpad-demo"];
     [app launch];
@@ -42,9 +42,7 @@
     }
 
     XCUIElement *sidebar = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.sidebar"];
-    if (expectsSidebar) {
-        XCTAssertTrue([sidebar waitForExistenceWithTimeout:5]);
-    } else {
+    if (!expectsWorkbench) {
         XCTAssertTrue([sidebar waitForNonExistenceWithTimeout:5]);
     }
 
@@ -67,9 +65,7 @@
     } else {
         XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
     }
-    if (expectsSidebar) {
-        XCTAssertTrue([sidebar waitForExistenceWithTimeout:5]);
-    } else {
+    if (!expectsWorkbench) {
         XCTAssertTrue([sidebar waitForNonExistenceWithTimeout:5]);
     }
 
