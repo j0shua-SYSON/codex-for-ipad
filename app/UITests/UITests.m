@@ -137,7 +137,13 @@
 
         XCUIElement *showAll = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.touch-show-all"];
         XCTAssertTrue(showAll.isHittable);
-        [showAll tap];
+        // SwiftUI exposes the full Form row as the switch's accessibility
+        // frame. A center tap lands on the explanatory row rather than the
+        // trailing switch on iPad, so exercise the visible control itself.
+        [[showAll coordinateWithNormalizedOffset:CGVectorMake(0.94, 0.5)] tap];
+        NSPredicate *switchIsOn = [NSPredicate predicateWithFormat:@"value == '1'"];
+        [self expectationForPredicate:switchIsOn evaluatedWithObject:showAll handler:nil];
+        [self waitForExpectationsWithTimeout:5 handler:nil];
 
         XCUIElement *folderButton = app.buttons[@"Choose folder in Files"];
         XCUIElement *settingsScroller = app.collectionViews.firstMatch.exists
@@ -150,7 +156,7 @@
         [folderButton tap];
         XCTAssertTrue([app.buttons[@"Unlink Files folder"] waitForExistenceWithTimeout:5]);
 
-        XCUIElement *openFeatureCenter = app.buttons[@"Open complete Feature Center"];
+        XCUIElement *openFeatureCenter = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.open-feature-center"];
         for (NSUInteger attempt = 0; attempt < 5 && !openFeatureCenter.isHittable; attempt++) {
             [settingsScroller swipeUp];
         }
