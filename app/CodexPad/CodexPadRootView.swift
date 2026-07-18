@@ -5,13 +5,15 @@ struct CodexPadRootView: View {
     let showTerminal: () -> Void
 
     @Environment(\.openURL) private var openURL
-    @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @State private var showsWorkbench = true
     @State private var searchText = ""
 
     var body: some View {
-        NavigationSplitView(columnVisibility: $columnVisibility) {
+        NavigationSplitView {
             sidebar
-        } content: {
+        } detail: {
             CodexConversationView(model: model)
                 .toolbar {
                     ToolbarItemGroup(placement: .topBarTrailing) {
@@ -31,18 +33,24 @@ struct CodexPadRootView: View {
                         .keyboardShortcut("t", modifiers: [.command, .shift])
 
                         Button {
-                            columnVisibility = columnVisibility == .all ? .doubleColumn : .all
+                            showsWorkbench.toggle()
                         } label: {
-                            Label("Toggle workbench", systemImage: "sidebar.right")
+                            Label(
+                                showsWorkbench ? "Hide workbench" : "Show workbench",
+                                systemImage: "sidebar.right"
+                            )
                         }
                         .accessibilityIdentifier("codexpad.toggle-workbench")
+                        .accessibilityValue(showsWorkbench ? "Shown" : "Hidden")
                         .keyboardShortcut("i", modifiers: [.command, .option])
                     }
                 }
-        } detail: {
-            CodexWorkbenchView(model: model)
         }
         .navigationSplitViewStyle(.balanced)
+        .inspector(isPresented: $showsWorkbench) {
+            CodexWorkbenchView(model: model)
+                .inspectorColumnWidth(min: 320, ideal: 420, max: 520)
+        }
         .accessibilityIdentifier("codexpad.workspace")
         .tint(CodexPalette.cobalt)
         .background(CodexPalette.canvas)
@@ -50,7 +58,14 @@ struct CodexPadRootView: View {
             CodexSettingsView(model: model)
         }
         .task {
+            prioritizeConversationIfNeeded()
             await model.start()
+        }
+        .onChange(of: dynamicTypeSize) { _, _ in
+            prioritizeConversationIfNeeded()
+        }
+        .onChange(of: horizontalSizeClass) { _, _ in
+            prioritizeConversationIfNeeded()
         }
         .onChange(of: model.loginURL) { _, url in
             if let url { openURL(url) }
@@ -120,6 +135,12 @@ struct CodexPadRootView: View {
         return model.threads.filter {
             $0.title.localizedCaseInsensitiveContains(searchText)
                 || $0.cwd.localizedCaseInsensitiveContains(searchText)
+        }
+    }
+
+    private func prioritizeConversationIfNeeded() {
+        if dynamicTypeSize.isAccessibilitySize || horizontalSizeClass == .compact {
+            showsWorkbench = false
         }
     }
 }
