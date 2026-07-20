@@ -6,7 +6,7 @@
   },
   "codex": {
     "repository": "openai/codex",
-    "revision": "6bd3f5e3db8275c10c7e4bbcc1342c32a89b7eee",
+    "revision": "bf3c1972b7d045c0a3a48dff91f381070f8f69e1",
     "rustToolchain": "1.95.0",
     "target": "i686-unknown-linux-musl",
     "protocol": "v2"
