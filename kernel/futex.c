@@ -87,11 +87,12 @@ static int futex_load(struct futex *futex, dword_t *out) {
     assert(futex->mem == current->mem);
     read_wrlock(&current->mem->lock);
     dword_t *ptr = mem_ptr(current->mem, futex->addr, MEM_READ);
+    // Translation alone does not retain the mapping. Sample the futex word
+    // before a concurrent munmap/COW fault can release its backing page.
+    if (ptr != NULL)
+        *out = __atomic_load_n(ptr, __ATOMIC_SEQ_CST);
     read_wrunlock(&current->mem->lock);
-    if (ptr == NULL)
-        return 1;
-    *out = *ptr;
-    return 0;
+    return ptr == NULL;
 }
 
 static int futex_wait(addr_t uaddr, dword_t val, struct timespec *timeout,
