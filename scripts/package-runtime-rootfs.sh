@@ -51,6 +51,12 @@ docker run --rm --platform linux/386 \
 # A service symlink alone cannot start the engine on a normal app boot.
 test -x "$root_dir/sbin/openrc"
 test -x "$root_dir/sbin/openrc-run"
+install -D -m 0755 "$project_root/runtime/usr/local/libexec/codexpad/boot" \
+    "$root_dir/usr/local/libexec/codexpad/boot"
+# Preserve the base's gettys, runlevels and shutdown, adapting only sysinit.
+grep -qx '::sysinit:/sbin/openrc sysinit' "$root_dir/etc/inittab"
+sed -i 's|^::sysinit:/sbin/openrc sysinit$|::sysinit:/usr/local/libexec/codexpad/boot|' \
+    "$root_dir/etc/inittab"
 
 install -D -m 0755 "$CODEX_BINARY" \
     "$root_dir/usr/local/libexec/codexpad/codex-app-server"

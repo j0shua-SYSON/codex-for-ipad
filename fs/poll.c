@@ -42,8 +42,10 @@ struct poll *poll_create(void) {
     if (poll == NULL)
         return ERR_PTR(_ENOMEM);
     int err = real_poll_init(&poll->real);
-    if (err < 0)
+    if (err < 0) {
+        free(poll);
         return ERR_PTR(errno_map());
+    }
     poll->waiters = 0;
     poll->notify_pipe[0] = -1;
     poll->notify_pipe[1] = -1;
@@ -76,7 +78,10 @@ static void poll_fd_free(struct poll_fd *poll_fd) {
 }
 
 bool poll_has_fd(struct poll *poll, struct fd *fd) {
-    return poll_find_fd(poll, fd) != NULL;
+    lock(&poll->lock);
+    bool found = poll_find_fd(poll, fd) != NULL;
+    unlock(&poll->lock);
+    return found;
 }
 
 int poll_add_fd(struct poll *poll, struct fd *fd, int types, union poll_fd_info info) {
@@ -100,12 +105,13 @@ int poll_add_fd(struct poll *poll, struct fd *fd, int types, union poll_fd_info 
     poll_fd->types = types;
     poll_fd->info = info;
     poll_fd->triggered_types = 0;
+    poll_fd->disabled = false;
 
     if (poll_fd_is_real(poll_fd)) {
         err = real_poll_update(&poll->real, fd->real_fd, types, poll_fd);
         if (err < 0) {
-            free(poll_fd);
             err = errno_map();
+            poll_fd_free(poll_fd);
             goto out;
         }
     }
@@ -130,7 +136,7 @@ int poll_del_fd(struct poll *poll, struct fd *fd) {
         goto out;
     }
 
-    if (poll_fd_is_real(poll_fd)) {
+    if (poll_fd_is_real(poll_fd) && !poll_fd->disabled) {
         err = real_poll_update(&poll->real, fd->real_fd, 0, poll_fd);
         if (err < 0) {
             err = errno_map();
@@ -169,7 +175,9 @@ int poll_mod_fd(struct poll *poll, struct fd *fd, int types, union poll_fd_info 
 
     poll_fd->types = types;
     poll_fd->info = info;
-    poll_fd->triggered_types &= types;
+    // MOD rechecks current readiness and rearms a delivered one-shot event.
+    poll_fd->triggered_types = 0;
+    poll_fd->disabled = false;
 
     err = 0;
 out:
@@ -182,13 +190,14 @@ void poll_cleanup_fd(struct fd *fd) {
     lock(&fd->poll_lock);
     struct poll_fd *poll_fd, *tmp;
     list_for_each_entry_safe(&fd->poll_fds, poll_fd, tmp, polls) {
-        lock(&poll_fd->poll->lock);
+        struct poll *poll = poll_fd->poll;
+        lock(&poll->lock);
         if (poll_fd_is_real(poll_fd))
             real_poll_update(&poll_fd->poll->real, fd->real_fd, 0, poll_fd);
         list_remove(&poll_fd->polls);
         list_remove(&poll_fd->fds);
-        unlock(&poll_fd->poll->lock);
         poll_fd_free(poll_fd);
+        unlock(&poll->lock);
     }
     unlock(&fd->poll_lock);
 }
@@ -216,6 +225,7 @@ int poll_wait(struct poll *poll_, poll_callback_t callback, void *context, struc
     if (poll_->waiters++ == 0) {
         assert(poll_->notify_pipe[0] == -1 && poll_->notify_pipe[1] == -1);
         if (pipe(poll_->notify_pipe) < 0) {
+            poll_->waiters--;
             unlock(&poll_->lock);
             return errno_map();
         }
@@ -230,6 +240,8 @@ int poll_wait(struct poll *poll_, poll_callback_t callback, void *context, struc
         // check if any fds are ready
         struct poll_fd *poll_fd, *tmp;
         list_for_each_entry_safe(&poll_->poll_fds, poll_fd, tmp, fds) {
+            if (poll_fd->disabled)
+                continue;
             struct fd *fd = poll_fd->fd;
             int poll_types = 0;
             if (fd->ops->poll)
@@ -239,8 +251,10 @@ int poll_wait(struct poll *poll_, poll_callback_t callback, void *context, struc
                 poll_types &= ~poll_fd->triggered_types;
             }
             if (poll_types) {
-                if (callback(context, poll_types, poll_fd->info) == 1)
-                    res++;
+                // A full result buffer did not consume this event.
+                if (callback(context, poll_types, poll_fd->info) != 1)
+                    continue;
+                res++;
 
                 // The real poll does not actually get the FDs set as oneshot.
                 // But this loop is done while holding the lock, so only one
@@ -248,12 +262,10 @@ int poll_wait(struct poll *poll_, poll_callback_t callback, void *context, struc
                 // thundering herd problem at all, but at least the semantics
                 // are right. I'll just leave that as a TODO.
                 if (poll_fd->types & POLL_ONESHOT) {
-                    list_remove(&poll_fd->polls);
-                    list_remove(&poll_fd->fds);
+                    poll_fd->disabled = true;
                     if (poll_fd_is_real(poll_fd)) {
                         real_poll_update(&poll_->real, fd->real_fd, 0, NULL);
                     }
-                    free(poll_fd);
                 }
 
                 if (poll_fd->types & POLL_EDGETRIGGERED) {

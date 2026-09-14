@@ -44,6 +44,8 @@ struct poll_fd {
     // returned its bits are set here, and those bits are ignored on the next
     // call to poll_wait. The bits are cleared by poll_wakeup.
     int triggered_types;
+    // EPOLLONESHOT stays registered but is inactive until EPOLL_CTL_MOD.
+    bool disabled;
 
     // locked by containing struct fd
     struct poll *poll;

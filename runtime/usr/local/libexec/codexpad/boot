@@ -1,0 +1,22 @@
+#!/bin/sh
+# iSH supplies devices and networking. Initialize OpenRC's per-boot state
+# without Linux hardware setup or tmpfs (not implemented by this kernel).
+set -eu
+if [ "$PPID" != 1 ]; then
+    echo "CodexPad boot initialization must be launched by init" >&2
+    exit 1
+fi
+if [ -L /run ] || [ -L /run/openrc ]; then
+    echo "Refusing symlinked OpenRC runtime state" >&2
+    exit 1
+fi
+mkdir -p /proc /run/openrc /run/lock
+if [ ! -r /proc/self/stat ]; then
+    mount -t proc proc /proc
+fi
+# Only transient service state is discarded on a new guest boot. Never touch
+# /root/.codex, linked projects, service definitions, or other /run contents.
+find /run/openrc -mindepth 1 -delete
+rm -f /run/codexpad-app-server.pid
+chmod 0775 /run/lock
+printf '%s\n' sysinit > /run/openrc/softlevel
