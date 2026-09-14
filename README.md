@@ -9,6 +9,8 @@ CodexPad is a native iPadOS workspace for the open-source Codex coding agent. It
 
 > [!IMPORTANT]
 > CodexPad is an independent community port, not an official OpenAI or iSH app. It is an actively developed, unsigned preview rather than an App Store release.
+>
+> Verification is in progress. A fresh real-iSH probe found a guest startup failure in the previously packaged runtime. Cross-compilation and demo UI tests alone do not establish a working local agent. See [verification status](docs/VERIFICATION.md) before installing or relying on this preview.
 
 ## What runs locally
 
@@ -38,14 +40,15 @@ Turning on **Show all Codex features** does not switch touch mode into desktop b
 
 The interface uses a native `NavigationSplitView` for recent threads and the semantic activity timeline, plus a workbench inspector for plans, diffs, files, and runtime diagnostics. It includes native command/file/permission approvals, `request_user_input`, account sign-in, review controls, keyboard shortcuts, pointer-friendly system controls, Dynamic Type, VoiceOver labels, dark mode, and compact-width adaptation. The model picker is populated by paginating upstream `model/list`, including provider-hidden entries, supported reasoning efforts, service tiers, modalities, and collaboration presets instead of hard-coding model names.
 
-Choosing a folder in **Settings > Workspace** invokes iSH's native `ios` filesystem driver. The Files picker grants a security-scoped bookmark, iSH mounts that folder at `/root/workspaces/codexpad-files`, and CodexPad immediately uses the guest mount as the thread working directory. The native Files panel and request defaults recognize the linked workspace, and iSH restores the mount on later launches. Unlinking removes only saved access and the mount; it does not delete the folder.
+Choosing a folder in **Settings > Workspace** invokes iSH's native `ios` filesystem driver. The Files picker grants a security-scoped bookmark and iSH mounts that folder at `/root/workspaces/codexpad-files`. CodexPad updates its workspace defaults and requests a thread working-directory update; if the server rejects that update, the thread retains its previous directory. iSH restores saved mounts on later launches. Unlinking requires a live engine and does not delete the folder. Real Files-provider access and relaunch behavior still require device verification.
 
 ## Complete GUI coverage
 
 The searchable Feature Center tracks the exact pinned app-server protocol instead of a hand-picked feature list:
 
-- 129 client request methods, 11 server requests, and 72 notifications are classified and parity-gated.
-- 125 user operations are executable in the GUI: 16 purpose-built native routes and 109 structured Advanced routes.
+- 166 client request methods, 11 server requests, and 84 notifications are classified and parity-gated for the upgrade candidate.
+- 162 user operations have GUI request routes: 16 native routes and 146 Advanced JSON routes. This is routing coverage, not proof that every operation works on iSH.
+- Stable operations include an offline parameter-schema reference and required-field scaffolding. Experimental methods omitted by upstream's stable schema link to their pinned protocol definitions.
 - Destructive Advanced requests require confirmation and display their structured result and live event stream.
 - Three upstream platform/test methods are explicit exceptions; `initialize` is handled automatically.
 - Unknown future server requests appear as answerable JSON cards instead of silently deadlocking a turn.
@@ -70,7 +73,7 @@ The workflow:
 2. applies the small i686-musl compatibility patch;
 3. cross-compiles `codex-app-server` with the upstream-pinned Rust toolchain;
 4. builds a pinned Alpine x86 image with Git, ripgrep, Python, SSH, and the local OpenRC service;
-5. builds an unsigned arm64 iPadOS app containing that verified image; and
+5. builds an unsigned arm64 iPadOS app containing that packaged image; and
 6. uploads `CodexPad-unsigned-iPadOS`, `codexpad-runtime-i686`, and `codex-app-server-i686-musl` artifacts.
 
 Download the ready-made artifact without a local compile:
@@ -85,7 +88,9 @@ For a Mac build, clone with submodules and open `iSH.xcodeproj`. Pass `CODEXPAD_
 
 ## Clean upstream updates
 
-The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patch, builds the complete i686 runtime and iPad app, and only then opens a pin-update pull request. The parity gate compares all stable and experimental client methods, server requests, and notifications with the GUI catalog; a new operation cannot merge until it has a deliberate native, Advanced, automatic, or incompatible route. Additive payload fields are decoded tolerantly, while breaking schema or target changes fail instead of silently shipping a partial port.
+The current upgrade candidate pins upstream `5b1d6560181680f95cde95c14ed042acc02248ed` (the latest `main` snapshot observed on September 14, 2026), using Rust 1.95.0. It adds project management, queued prompts, attachments, sections, Bedrock setup, user-verification methods, and `thread/revert` in place of `thread/rollback`.
+
+The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patch, and builds a candidate before opening a pin-update pull request. The parity gate compares stable and experimental method names with the GUI catalog and verifies that the bundled stable schema exactly matches upstream. New methods and schema changes require explicit integration work. These checks do not replace native regressions, a real guest handshake/command probe, or physical-device verification.
 
 Platform-specific code is concentrated in `app/CodexPad`, `runtime`, `patches`, and the build workflows, with small host hooks in `AppGroup.m`, `SceneDelegate.m`, `TerminalViewController`, and the Xcode project. The upstream Codex checkout is never edited in place, and the iSH changes remain deliberately narrow and reviewable.
 
@@ -96,8 +101,8 @@ The small target layer is documented in [`compat/README.md`](compat/README.md). 
 - iPadOS can suspend long-running turns when the app leaves the foreground.
 - iSH's x86 emulation is slower than native desktop execution.
 - Large toolchains must fit the iPad's storage and be available for Alpine x86.
-- Experimental Code Mode is disabled by default upstream and reports a clear platform error on CodexPad because Rusty V8 has no published i686-musl library. Normal app-server tools and agent turns do not use this subsystem.
-- iSH is a compatibility environment, not a secure container. Codex tools can read and modify everything exposed inside the selected guest root after approval; do not place untrusted secrets in that root.
+- Upstream now runs Code Mode through a separate host executable. That V8-based host is not bundled for i686-musl; the obsolete in-process stubs have been removed. Code Mode remains a platform exception.
+- iSH is a compatibility environment, not a secure container. Tools can read and modify everything exposed inside the guest root. Approval prompts occur when the configured policy requests them, not necessarily before every command. Do not put secrets in an untrusted workspace.
 - The app-server WebSocket transport is currently marked experimental upstream, so every Codex update is compatibility-gated.
 
 ## License
