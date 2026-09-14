@@ -199,8 +199,8 @@ dword_t sys_futex(addr_t uaddr, dword_t op, dword_t val, addr_t timeout_or_val2,
         struct timespec_ timeout_;
         if (user_get(timeout_or_val2, timeout_))
             return _EFAULT;
-        timeout.tv_sec = timeout_.sec;
-        timeout.tv_nsec = timeout_.nsec;
+        timeout.tv_sec = (int32_t) timeout_.sec;
+        timeout.tv_nsec = (int32_t) timeout_.nsec;
         if (timeout.tv_sec < 0 || timeout.tv_nsec < 0 || timeout.tv_nsec >= 1000000000)
             return _EINVAL;
     }

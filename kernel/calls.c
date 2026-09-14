@@ -186,6 +186,7 @@ syscall_t syscall_table[] = {
     [264] = (syscall_t) sys_clock_settime,
     [265] = (syscall_t) sys_clock_gettime,
     [266] = (syscall_t) sys_clock_getres,
+    [267] = (syscall_t) sys_clock_nanosleep,
     [268] = (syscall_t) sys_statfs64,
     [269] = (syscall_t) sys_fstatfs64,
     [270] = (syscall_t) sys_tgkill,

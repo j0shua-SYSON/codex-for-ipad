@@ -588,10 +588,12 @@ int __do_execve(const char *file, struct exec_args argv, struct exec_args envp) 
     if (stat.mode & S_ISUID) {
         current->suid = current->euid;
         current->euid = stat.uid;
+        current->pdeath_signal = 0;
     }
     if (stat.mode & S_ISGID) {
         current->sgid = current->egid;
         current->egid = stat.gid;
+        current->pdeath_signal = 0;
     }
 
     // save current->comm

@@ -79,6 +79,7 @@ struct task {
         lock_t lock;
     } *vfork;
     int exit_signal;
+    atomic_int pdeath_signal;
 
     // lock for anything that needs locking but is not covered by some other lock
     // specifically: comm, mm

@@ -58,6 +58,7 @@ struct task *task_create_(struct task *parent) {
     *task = (struct task) {};
     if (parent != NULL)
         *task = *parent;
+    task->pdeath_signal = 0; // Linux clears PR_SET_PDEATHSIG on fork/clone.
     task->pid = pid->id;
     pid->task = task;
 

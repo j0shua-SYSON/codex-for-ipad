@@ -11,6 +11,7 @@ dword_t sys_stime(addr_t time);
 dword_t sys_clock_gettime(dword_t clock, addr_t tp);
 dword_t sys_clock_settime(dword_t clock, addr_t tp);
 dword_t sys_clock_getres(dword_t clock, addr_t res_addr);
+dword_t sys_clock_nanosleep(dword_t clock, dword_t flags, addr_t req, addr_t rem);
 
 struct timeval_ {
     dword_t sec;

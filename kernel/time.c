@@ -181,25 +181,63 @@ uint_t sys_alarm(uint_t seconds) {
     return seconds;
 }
 
-dword_t sys_nanosleep(addr_t req_addr, addr_t rem_addr) {
+dword_t sys_clock_nanosleep(dword_t clock, dword_t flags, addr_t req_addr, addr_t rem_addr) {
+    if ((clock != CLOCK_MONOTONIC_ && clock != CLOCK_REALTIME_) || flags > 1)
+        return _EINVAL;
     struct timespec_ req_ts;
     if (user_get(req_addr, req_ts))
         return _EFAULT;
-    STRACE("nanosleep({%d, %d}, 0x%x", req_ts.sec, req_ts.nsec, rem_addr);
-    struct timespec req;
-    req.tv_sec = req_ts.sec;
-    req.tv_nsec = req_ts.nsec;
-    struct timespec rem;
-    if (nanosleep(&req, &rem) < 0)
-        return errno_map();
-    if (rem_addr != 0) {
-        struct timespec_ rem_ts;
-        rem_ts.sec = rem.tv_sec;
-        rem_ts.nsec = rem.tv_nsec;
+    if ((int32_t) req_ts.sec < 0 || req_ts.nsec >= 1000000000)
+        return _EINVAL;
+    // Relative sleeps use monotonic time even with CLOCK_REALTIME.
+    clockid_t host_clock = flags && clock == CLOCK_REALTIME_ ? CLOCK_REALTIME : CLOCK_MONOTONIC;
+    struct timespec deadline = {req_ts.sec, req_ts.nsec}, now, remaining = {0};
+    if (!flags) {
+        clock_gettime(host_clock, &now);
+        deadline.tv_sec += now.tv_sec;
+        deadline.tv_nsec += now.tv_nsec;
+        if (deadline.tv_nsec >= 1000000000) {
+            deadline.tv_sec++;
+            deadline.tv_nsec -= 1000000000;
+        }
+    }
+    cond_t condition;
+    cond_init(&condition);
+    lock_t sleep_lock;
+    lock_init(&sleep_lock);
+    lock(&sleep_lock);
+    int result = 0;
+    for (;;) {
+        clock_gettime(host_clock, &now);
+        remaining.tv_sec = deadline.tv_sec - now.tv_sec;
+        remaining.tv_nsec = deadline.tv_nsec - now.tv_nsec;
+        if (remaining.tv_nsec < 0) {
+            remaining.tv_sec--;
+            remaining.tv_nsec += 1000000000;
+        }
+        if (remaining.tv_sec < 0 || (remaining.tv_sec == 0 && remaining.tv_nsec == 0)) {
+            result = 0;
+            break;
+        }
+        if (result == _EINTR)
+            break;
+        // Recheck the deadline after spurious wakeups. wait_for also closes
+        // the pending-signal race that a direct host nanosleep leaves open.
+        result = wait_for(&condition, &sleep_lock, &remaining);
+    }
+    unlock(&sleep_lock);
+    cond_destroy(&condition);
+    pthread_mutex_destroy(&sleep_lock.m);
+    if (result == _EINTR && !flags && rem_addr != 0) {
+        struct timespec_ rem_ts = {remaining.tv_sec, remaining.tv_nsec};
         if (user_put(rem_addr, rem_ts))
             return _EFAULT;
     }
-    return 0;
+    return result;
+}
+
+dword_t sys_nanosleep(addr_t req_addr, addr_t rem_addr) {
+    return sys_clock_nanosleep(CLOCK_MONOTONIC_, 0, req_addr, rem_addr);
 }
 
 dword_t sys_times(addr_t tbuf) {
