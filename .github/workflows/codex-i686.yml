@@ -327,6 +327,9 @@ jobs:
   ipad-app:
     name: Build integrated CodexPad app
     needs: [runtime-probe, native-regression]
+    # Runtime reuse intentionally skips compilation/package ancestors. Override
+    # implicit success() propagation, but still require both verification gates.
+    if: ${{ !cancelled() && needs.runtime-probe.result == 'success' && needs.native-regression.result == 'success' }}
     runs-on: macos-26
     timeout-minutes: 45
 
