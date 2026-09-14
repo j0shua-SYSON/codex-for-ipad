@@ -163,6 +163,8 @@ if get_option('kernel') == 'ish'
 
     if not meson.is_cross_build()
         executable('ish', ['main.c'], dependencies: ish)
+        uname_test = executable('uname_test', ['tests/codexpad/uname.c'], dependencies: ish)
+        test('uname-bounds', uname_test)
     endif
 
 elif get_option('kernel') == 'linux'

@@ -13,15 +13,16 @@ const char *uname_version = "SUPER AWESOME";
 const char *uname_hostname_override = NULL;
 
 void do_uname(struct uname *uts) {
-    struct utsname real_uname;
-    uname(&real_uname);
-    const char *hostname = real_uname.nodename;
+    struct utsname real_uname = {0};
+    const char *hostname = uname(&real_uname) == 0 ? real_uname.nodename : "localhost";
     if (uname_hostname_override)
         hostname = uname_hostname_override;
 
     memset(uts, 0, sizeof(struct uname));
     strcpy(uts->system, "Linux");
-    strcpy(uts->hostname, hostname);
+    // Darwin permits a longer host name than Linux's 64-byte guest field.
+    // Never overflow into the remaining fields (or trip libc's fortify trap).
+    snprintf(uts->hostname, sizeof(uts->hostname), "%s", hostname);
     strcpy(uts->release, "4.20.69-ish");
     snprintf(uts->version, sizeof(uts->version), "%s %s %s", uname_version, __DATE__, __TIME__);
     strcpy(uts->arch, "i686");
