@@ -1,4 +1,5 @@
 #include <string.h>
+#include <sys/stat.h>
 #include "debug.h"
 #include "kernel/fs.h"
 #include "fs/fd.h"

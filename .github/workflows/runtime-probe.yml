@@ -26,8 +26,13 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ubuntu-24.04, macos-26]
+        include:
+          - runner: macos-26
+            sanitizer: address
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
+    env:
+      ASAN_OPTIONS: detect_leaks=0:abort_on_error=1
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
@@ -57,7 +62,7 @@ jobs:
           echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
       - name: Build the actual iSH emulator
         run: |
-          meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug -Dlog=strace -Dlog_handler=stderr
+          meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug -Dlog=strace -Dlog_handler=stderr -Db_sanitize="${{ matrix.sanitizer || 'none' }}"
           ninja -C build
           build/uname_test
       - name: Exercise SSE instructions and masked futex waits
@@ -138,7 +143,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: Real-iSH-runtime-evidence-${{ runner.os }}
+          name: Real-iSH-runtime-evidence-${{ runner.os }}${{ matrix.sanitizer && '-ASan' || '' }}
           path: |
             artifacts/runtime-probe.log
             artifacts/runtime-manifest.json

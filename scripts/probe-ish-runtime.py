@@ -26,6 +26,13 @@ def main():
     # Host syscall traces may contain arbitrary guest bytes, not UTF-8 text.
     diagnostics = open(args.stderr_log, "wb") if args.stderr_log else None
     address = "ws://127.0.0.1:4500" if args.transport == "websocket" else "stdio://"
+    if args.debugger_lldb:
+        # A debugger may leave its inferior alive on failure. Never connect a
+        # subsequent diagnostic attempt to the preceding attempt's server.
+        import socket
+        with socket.socket() as reservation:
+            reservation.bind(("127.0.0.1", 0))
+            address = f"ws://127.0.0.1:{reservation.getsockname()[1]}"
     connection = None
     stopping = threading.Event()
     console_master = console_slave = None
@@ -169,6 +176,15 @@ def main():
             "sandboxPolicy": {"type": "dangerFullAccess"},
         }, expect_error=True)
         assert "No such file" in missing["message"] or "os error 2" in missing["message"], missing
+        # Exercise fork/exec/exit repeatedly with the real threaded engine.
+        # A single successful request is insufficient for lifetime-race checks.
+        for identifier in range(8, 28):
+            repeated = request(identifier, "command/exec", {
+                "command": ["/bin/sh", "-c", "printf repeated-spawn; exit 3"],
+                "cwd": "/root/workspace", "timeoutMs": 30000,
+                "sandboxPolicy": {"type": "dangerFullAccess"},
+            })
+            assert repeated["exitCode"] == 3 and repeated["stdout"] == "repeated-spawn", repeated
         if diagnostics:
             diagnostics.flush()
             with open(args.stderr_log, "rb") as log:
