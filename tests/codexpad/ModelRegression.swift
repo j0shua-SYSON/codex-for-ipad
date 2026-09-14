@@ -148,6 +148,65 @@ struct ModelRegression {
         await sender.sendComposer()
         check(sendRPC.calls.count == count && sender.composerText == "offline draft", "offline send neither calls RPC nor loses text")
 
+        let catalogRPC = FakeRPC()
+        let catalog = model(catalogRPC)
+        let firstModel: JSONValue = .object(["id": .string("first"), "model": .string("provider-first")])
+        let nextModel: JSONValue = .object([
+            "id": .string("future-model"), "model": .string("provider-future"), "isDefault": .bool(true),
+            "hidden": .bool(true), "defaultReasoningEffort": .string("high"),
+            "supportedReasoningEfforts": .array([.object(["reasoningEffort": .string("high")])])
+        ])
+        catalogRPC.handler = { method, params in
+            guard method == "model/list" else { return .object([:]) }
+            if params?["cursor"]?.stringValue == nil {
+                return .object(["data": .array([firstModel]), "nextCursor": .string("page-two")])
+            }
+            return .object(["data": .array([firstModel, nextModel]), "nextCursor": .null])
+        }
+        await catalog.refreshModels()
+        check(catalog.availableModels.map(\.id) == ["first", "future-model"], "model catalog paginates and deduplicates provider entries")
+        check(catalog.selectedModelID == "future-model" && catalog.selectedReasoningEffort == "high", "new provider models retain their default reasoning without hard-coded names")
+        check(catalog.availableModels.last?.hidden == true, "hidden provider models remain available to the complete picker")
+        catalogRPC.handler = { _, _ in .object(["data": .array([]), "nextCursor": .string("loop")]) }
+        await catalog.refreshModels()
+        check(catalog.availableModels.count == 2 && catalog.errorBanner != nil, "invalid model pagination preserves the previous usable catalog")
+
+        let historyRPC = FakeRPC()
+        let history = model(historyRPC)
+        func message(_ id: String) -> JSONValue {
+            .object(["id": .string(id), "type": .string("agentMessage"), "text": .string(id)])
+        }
+        historyRPC.handler = { method, _ in
+            guard method == "thread/resume" else { return .object([:]) }
+            return .object([
+                "thread": .object(["id": .string("A"), "cwd": .string("/root/A"),
+                    "turns": .array([.object(["items": .array([message("current")])])])]),
+                "turnsBackwardsCursor": .string("older-page")
+            ])
+        }
+        await history.resumeThread("A")
+        check(history.hasEarlierHistory, "resume exposes the upstream history cursor")
+        let historyGate = Gate()
+        historyRPC.handler = { method, params in
+            if method == "thread/turns/list" {
+                check(params?["itemsView"] == .string("full") && params?["sortDirection"] == .string("desc"), "history asks for complete backward-paginated turns")
+                return await historyGate.response()
+            }
+            return .object([:])
+        }
+        let loading = Task { await history.loadEarlierHistory() }
+        await until { historyGate.continuation != nil }
+        history.selectedThreadID = "B"
+        historyGate.release(.object(["nextCursor": .null, "data": .array([
+            .object(["items": .array([message("middle"), message("current")])]),
+            .object(["items": .array([message("oldest"), message("oldest")])])
+        ])]))
+        await loading.value
+        check(history.selectedThreadID == "B" && history.selectedTimeline.isEmpty, "late history pages stay scoped to their original thread")
+        check(history.timelineByThread["A"]?.map(\.id) == ["oldest", "middle", "current"], "history is chronological and deduplicates both page and live items")
+        history.selectedThreadID = "A"
+        check(!history.hasEarlierHistory && !history.isLoadingHistory, "history clears its completed cursor and loading state")
+
         let filesRPC = FakeRPC()
         let files = model(filesRPC)
         files.workspacePath = "/root/previous"
