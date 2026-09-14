@@ -232,67 +232,68 @@ static void *mem_ptr_nofault(struct mem *mem, addr_t addr, int type) {
     return entry->data->data + entry->offset + PGOFFSET(addr);
 }
 
-void *mem_ptr(struct mem *mem, addr_t addr, int type) {
-    void *old_ptr = mem_ptr_nofault(mem, addr, type); // just for an assert
-
-    page_t page = PAGE(addr);
+// Must hold the write lock. Never carry a page entry/backing pointer across
+// the read-to-write lock gap: another writer may have copied or unmapped it.
+static int mem_resolve_fault(struct mem *mem, page_t page, int type, bool ptrace_copy) {
     struct pt_entry *entry = mem_pt(mem, page);
-
     if (entry == NULL) {
-        // page does not exist
-        // look to see if the next VM region is willing to grow down
         page_t p = page + 1;
         while (p < MEM_PAGES && mem_pt(mem, p) == NULL)
             p++;
-        if (p >= MEM_PAGES)
-            return NULL;
-        if (!(mem_pt(mem, p)->flags & P_GROWSDOWN))
-            return NULL;
-
-        // Changing memory maps must be done with the write lock. But this is
-        // called with the read lock.
-        // This locking stuff is copy/pasted for all the code in this function
-        // which changes memory maps.
-        // TODO: factor the lock/unlock code here into a new function. Do this
-        // next time you touch this function.
-        read_wrunlock(&mem->lock);
-        write_wrlock(&mem->lock);
-        pt_map_nothing(mem, page, 1, P_WRITE | P_GROWSDOWN);
-        write_wrunlock(&mem->lock);
-        read_wrlock(&mem->lock);
-
+        if (p >= MEM_PAGES || !(mem_pt(mem, p)->flags & P_GROWSDOWN))
+            return _EFAULT;
+        int err = pt_map_nothing(mem, page, 1, P_WRITE | P_GROWSDOWN);
+        if (err < 0)
+            return err;
         entry = mem_pt(mem, page);
     }
-
-    if (entry != NULL && (type == MEM_WRITE || type == MEM_WRITE_PTRACE)) {
-        // if page is unwritable, well tough luck
-        if (type != MEM_WRITE_PTRACE && !(entry->flags & P_WRITE))
-            return NULL;
-        if (type == MEM_WRITE_PTRACE) {
-            // TODO: Is P_WRITE really correct? The page shouldn't be writable without ptrace.
-            entry->flags |= P_WRITE | P_COW;
-        }
-        // get rid of any compiled blocks in this page
-        asbestos_invalidate_page(mem->mmu.asbestos, page);
-        // if page is cow, ~~milk~~ copy it
-        if (entry->flags & P_COW) {
-            void *data = (char *) entry->data->data + entry->offset;
-            void *copy = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
-                    MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
-
-            // copy/paste from above
-            read_wrunlock(&mem->lock);
-            write_wrlock(&mem->lock);
-            memcpy(copy, data, PAGE_SIZE);
-            pt_map(mem, page, 1, copy, 0, entry->flags &~ P_COW);
-            write_wrunlock(&mem->lock);
-            read_wrlock(&mem->lock);
+    if (type != MEM_WRITE && type != MEM_WRITE_PTRACE)
+        return 0;
+    unsigned flags = entry->flags;
+    if (ptrace_copy)
+        flags |= P_WRITE | P_COW;
+    if (!(flags & P_WRITE))
+        return _EFAULT;
+    if (flags & P_COW) {
+        void *copy = mmap(NULL, PAGE_SIZE, PROT_READ | PROT_WRITE,
+                MAP_PRIVATE | MAP_ANONYMOUS, 0, 0);
+        if (copy == MAP_FAILED)
+            return errno_map();
+        memcpy(copy, (char *) entry->data->data + entry->offset, PAGE_SIZE);
+        int err = pt_map(mem, page, 1, copy, 0, flags & ~P_COW);
+        if (err < 0) {
+            munmap(copy, PAGE_SIZE);
+            return err;
         }
     }
+    return 0;
+}
 
-    void *ptr = mem_ptr_nofault(mem, addr, type);
-    assert(old_ptr == NULL || old_ptr == ptr || type == MEM_WRITE_PTRACE);
-    return ptr;
+void *mem_ptr(struct mem *mem, addr_t addr, int type) {
+    bool writing = type == MEM_WRITE || type == MEM_WRITE_PTRACE;
+    bool ptrace_copy = type == MEM_WRITE_PTRACE;
+    page_t page = PAGE(addr);
+    for (;;) {
+        struct pt_entry *entry = mem_pt(mem, page);
+        if (entry != NULL && !ptrace_copy && (!writing || P_WRITABLE(entry->flags))) {
+            if (writing)
+                asbestos_invalidate_page(mem->mmu.asbestos, page);
+            return mem_ptr_nofault(mem, addr, type);
+        }
+        if (entry != NULL && writing && type != MEM_WRITE_PTRACE && !(entry->flags & P_WRITE))
+            return NULL;
+
+        read_wrunlock(&mem->lock);
+        write_wrlock(&mem->lock);
+        int err = mem_resolve_fault(mem, page, type, ptrace_copy);
+        write_wrunlock(&mem->lock);
+        read_wrlock(&mem->lock);
+        if (err < 0)
+            return NULL;
+        ptrace_copy = false;
+        // Recheck after reacquiring the read lock, too: a concurrent fork,
+        // mprotect or unmap may have changed the mapping in this second gap.
+    }
 }
 
 static void *mem_mmu_translate(struct mmu *mmu, addr_t addr, int type) {

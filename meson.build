@@ -165,6 +165,8 @@ if get_option('kernel') == 'ish'
         executable('ish', ['main.c'], dependencies: ish)
         uname_test = executable('uname_test', ['tests/codexpad/uname.c'], dependencies: ish)
         test('uname-bounds', uname_test)
+        memory_cow_test = executable('memory_cow_test', ['tests/codexpad/memory-cow.c'], dependencies: ish)
+        test('memory-cow-race', memory_cow_test, timeout: 30)
     endif
 
 elif get_option('kernel') == 'linux'
