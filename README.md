@@ -73,8 +73,11 @@ The workflow:
 2. applies the small i686-musl compatibility patch;
 3. cross-compiles `codex-app-server` with the upstream-pinned Rust toolchain;
 4. builds a pinned Alpine x86 image with Git, ripgrep, Python, SSH, and the local OpenRC service;
-5. builds an unsigned arm64 iPadOS app containing that packaged image; and
-6. uploads `CodexPad-unsigned-iPadOS`, `codexpad-runtime-i686`, and `codex-app-server-i686-musl` artifacts.
+5. tests emulator instructions and real Codex initialization, model/account reads, filesystem access, and harmless Git/ripgrep execution;
+6. builds an unsigned arm64 iPadOS app only after that real-runtime gate passes; and
+7. uploads the runtime, binary, test evidence, and (on success) `CodexPad-unsigned-iPadOS` artifacts.
+
+For app-only changes, the optional `runtime_artifact_run_id` input reuses a previous runtime artifact. The runtime's exact revision is checked and the real-emulator gate runs again; it does not bypass verification.
 
 Download the ready-made artifact without a local compile:
 
