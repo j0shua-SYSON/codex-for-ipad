@@ -82,6 +82,9 @@ jobs:
               objdump -d "artifacts/instruction-test/$test" >> artifacts/instruction-disassembly.txt
             fi
             timeout 15 build/ish -r artifacts/instruction-test "/$test"
+            if [[ "$test" == poll-files ]]; then
+              timeout 15 build/ish -r artifacts/instruction-test "/$test" 2> artifacts/poll-files-redirected.log
+            fi
             echo "PASS: real iSH $test regression"
           done
       - name: Import and execute packaged guest
@@ -150,6 +153,7 @@ jobs:
             artifacts/runtime-manifest.json
             artifacts/guest-backtrace.txt
             artifacts/instruction-disassembly.txt
+            artifacts/poll-files-redirected.log
             artifacts/guest-symbols.txt
             artifacts/guest-syscalls.log
             artifacts/guest-websocket.log
