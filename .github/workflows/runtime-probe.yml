@@ -36,6 +36,8 @@ jobs:
           set -euo pipefail
           tar -xOf artifacts/runtime/codexpad-rootfs.tar.gz ./usr/local/share/codexpad/runtime.json | tee artifacts/runtime-manifest.json
           build/tools/fakefsify artifacts/runtime/codexpad-rootfs.tar.gz artifacts/guest
+          timeout 30 build/ish -f artifacts/guest /bin/busybox echo ISH_BASELINE_OK
+          timeout 60 build/ish -f artifacts/guest /usr/local/libexec/codexpad/codex-app-server --help
           python3 scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest | tee artifacts/runtime-probe.log
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()

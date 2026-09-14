@@ -17,7 +17,7 @@ def main():
     args = parser.parse_args()
     process = subprocess.Popen(
         [args.ish, "-f", args.root, "-d", "/root/workspace", "/bin/sh", "-lc",
-         "exec /usr/local/libexec/codexpad/codex-app-server --listen stdio://"],
+         "echo CODEXPAD_SHELL_READY >&2; exec /usr/local/libexec/codexpad/codex-app-server --listen stdio://"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, bufsize=1, start_new_session=True,
     )
@@ -44,7 +44,11 @@ def main():
         while True:
             response = messages.get(timeout=max(0.1, deadline - time.monotonic()))
             if response is None:
-                raise RuntimeError(f"iSH app-server exited while awaiting {method}; status={process.poll()}")
+                try:
+                    status = process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    status = "still alive with closed stdout"
+                raise RuntimeError(f"iSH app-server exited while awaiting {method}; status={status}")
             if response.get("id") != identifier:
                 if "method" in response and "id" in response:
                     raise RuntimeError(f"Unexpected interactive server request: {response['method']}")
