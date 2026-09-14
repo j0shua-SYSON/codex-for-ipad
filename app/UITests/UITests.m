@@ -50,12 +50,13 @@
     XCUIElement *send = app.buttons[@"codexpad.send"];
     XCTAssertTrue(send.isHittable);
     [send tap];
-    NSPredicate *focused = [NSPredicate predicateWithFormat:@"hasFocus == YES"];
-    [self expectationForPredicate:focused evaluatedWithObject:composer handler:nil];
-    [self waitForExpectationsWithTimeout:5 handler:nil];
-
     XCTAssertTrue([app.staticTexts[@"Demo response received. No model or guest command was executed."] waitForExistenceWithTimeout:5]);
     XCTAssertFalse([app.staticTexts[@"Could not start the turn: Codex engine is not connected"] exists]);
+    // Test actual input delivery without tapping the field again. XCTest's
+    // hasFocus can report false for this multiline SwiftUI field even while
+    // its insertion cursor and software keyboard remain visible.
+    [app typeText:@"After send"];
+    XCTAssertEqualObjects(composer.value, @"After send");
 
     XCUIElement *features = [self hittableButtonWithIdentifier:@"codexpad.features"
                                                  inApplication:app];
@@ -72,8 +73,8 @@
     XCTAssertNotNil(featureDone);
     [featureDone tap];
     XCTAssertTrue([featureCenter waitForNonExistenceWithTimeout:5]);
-    [self expectationForPredicate:focused evaluatedWithObject:composer handler:nil];
-    [self waitForExpectationsWithTimeout:5 handler:nil];
+    [app typeText:@" after features"];
+    XCTAssertEqualObjects(composer.value, @"After send after features");
 
     XCUIElement *terminal = [self hittableButtonWithIdentifier:@"codexpad.terminal"
                                                  inApplication:app];
@@ -83,8 +84,8 @@
     XCTAssertTrue([returnButton waitForExistenceWithTimeout:5]);
     [returnButton tap];
     XCTAssertTrue([workspace waitForExistenceWithTimeout:5]);
-    [self expectationForPredicate:focused evaluatedWithObject:composer handler:nil];
-    [self waitForExpectationsWithTimeout:5 handler:nil];
+    [app typeText:@" after terminal"];
+    XCTAssertEqualObjects(composer.value, @"After send after features after terminal");
 
     XCTAttachment *screenshot = [XCTAttachment attachmentWithScreenshot:XCUIScreen.mainScreen.screenshot];
     screenshot.name = @"CodexPad 13-inch desktop mode";
