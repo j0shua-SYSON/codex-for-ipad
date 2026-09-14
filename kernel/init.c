@@ -158,6 +158,7 @@ int create_stdio(const char *file, int major, int minor) {
         fd = adhoc_fd_create(NULL);
         fd->stat.rdev = dev_make(major, minor);
         fd->stat.mode = S_IFCHR | S_IRUSR;
+        fd->type = S_IFCHR;
         fd->flags = O_RDWR_;
         int err = dev_open(major, minor, DEV_CHAR, fd);
         if (err < 0)
@@ -178,6 +179,13 @@ static struct fd *open_fd_from_actual_fd(int fd_no) {
     }
     fd->real_fd = fd_no;
     fd->dir = NULL;
+    // Host-provided stdio can be a regular log file, not only a pipe/TTY.
+    // Preserve its type so guest poll does not register it with host epoll.
+    struct stat actual;
+    if (fstat(fd_no, &actual) == 0) {
+        fd->type = actual.st_mode & S_IFMT;
+        fd->stat.mode = actual.st_mode;
+    }
     return fd;
 }
 

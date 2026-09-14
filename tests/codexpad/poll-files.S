@@ -1,6 +1,15 @@
 .section .text
 .global _start
 _start:
+    # Rust's startup sanity check polls all inherited stdio with no events.
+    # This must also succeed when the host redirected stderr to a regular file.
+    movl $168, %eax
+    movl $stdio_entry, %ebx
+    movl $1, %ecx
+    xorl %edx, %edx
+    int $0x80
+    testl %eax, %eax
+    jne failed
     movl $5, %eax
     movl $self_path, %ebx
     xorl %ecx, %ecx
@@ -56,6 +65,8 @@ finish:
 .section .data
 self_path: .asciz "/poll-files"
 .align 4
+stdio_entry: .long 2
+             .short 0, 0
 entries: .long 0
          .short 1, 0
          .long 0
