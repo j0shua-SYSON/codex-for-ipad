@@ -17,6 +17,11 @@ on:
         description: Reuse a previously built runtime for verified app repackaging
         required: false
         type: string
+      repackage_runtime:
+        description: Rebuild Alpine around the verified binary from that runtime
+        required: false
+        default: false
+        type: boolean
       codex_revision:
         description: Optional openai/codex commit override
         required: false
@@ -99,8 +104,13 @@ jobs:
         env:
           INPUT_CODEX_REVISION: ${{ inputs.codex_revision }}
           INPUT_RUST_TOOLCHAIN: ${{ inputs.rust_toolchain }}
+          INPUT_REPACKAGE_RUNTIME: ${{ inputs.repackage_runtime }}
         run: |
           set -euo pipefail
+          if [[ "$INPUT_REPACKAGE_RUNTIME" == "true" ]]; then
+            echo "Repackaging requires runtime_artifact_run_id." >&2
+            exit 1
+          fi
           revision="${INPUT_CODEX_REVISION:-$(jq -r '.codex.revision' Dependencies/upstreams.json)}"
           toolchain="${INPUT_RUST_TOOLCHAIN:-$(jq -r '.codex.rustToolchain' Dependencies/upstreams.json)}"
           target="$(jq -r '.codex.target' Dependencies/upstreams.json)"
@@ -211,10 +221,11 @@ jobs:
   runtime:
     name: Package pinned iSH runtime
     needs: app-server
+    if: always() && (needs.app-server.result == 'success' || (inputs.runtime_artifact_run_id != '' && inputs.repackage_runtime))
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     env:
-      CODEX_REVISION: ${{ needs.app-server.outputs.codex_revision }}
+      CODEX_REVISION: ${{ needs.app-server.outputs.codex_revision || inputs.codex_revision }}
 
     steps:
       - name: Check out CodexPad
@@ -226,8 +237,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          revision="$CODEX_REVISION"
+          revision="${CODEX_REVISION:-$(jq -r '.codex.revision' Dependencies/upstreams.json)}"
           [[ "$revision" =~ ^[0-9a-f]{40}$ ]]
+          echo "CODEX_REVISION=$revision" >> "$GITHUB_ENV"
           mkdir -p upstream/codex
           git -C upstream/codex init
           git -C upstream/codex remote add origin https://github.com/openai/codex.git
@@ -237,10 +249,34 @@ jobs:
           test -f upstream/codex/LICENSE
 
       - name: Download verified app-server
+        if: ${{ !inputs.repackage_runtime }}
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: codex-app-server-i686-musl
           path: artifacts/app-server
+
+      - name: Download previous runtime for repackaging
+        if: inputs.repackage_runtime
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: codexpad-runtime-i686
+          path: artifacts/previous-runtime
+          run-id: ${{ inputs.runtime_artifact_run_id }}
+          github-token: ${{ github.token }}
+
+      - name: Extract the exact previously built app-server
+        if: inputs.repackage_runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          previous=artifacts/previous-runtime/codexpad-rootfs.tar.gz
+          tar -xOf "$previous" ./usr/local/share/codexpad/runtime.json \
+            | jq -e --arg revision "$CODEX_REVISION" '.codexRevision == $revision'
+          mkdir -p artifacts/app-server
+          tar -xOf "$previous" ./usr/local/libexec/codexpad/codex-app-server \
+            > artifacts/app-server/codex-app-server
+          tar -xOf "$previous" ./usr/local/share/codexpad/codex-app-server.sha256 \
+            > artifacts/app-server/codex-app-server.sha256
 
       - name: Verify app-server handoff
         shell: bash
@@ -282,10 +318,10 @@ jobs:
   runtime-probe:
     name: Verify packaged Codex in the real iSH emulator
     needs: [app-server, runtime]
-    if: always() && (needs.runtime.result == 'success' || inputs.runtime_artifact_run_id != '')
+    if: always() && (needs.runtime.result == 'success' || (inputs.runtime_artifact_run_id != '' && !inputs.repackage_runtime))
     uses: ./.github/workflows/runtime-probe.yml
     with:
-      artifact_run_id: ${{ inputs.runtime_artifact_run_id || format('{0}', github.run_id) }}
+      artifact_run_id: ${{ inputs.repackage_runtime && format('{0}', github.run_id) || inputs.runtime_artifact_run_id || format('{0}', github.run_id) }}
       expected_revision: ${{ needs.app-server.outputs.codex_revision || inputs.codex_revision }}
 
   ipad-app:
@@ -306,7 +342,7 @@ jobs:
         with:
           name: codexpad-runtime-i686
           path: artifacts/runtime
-          run-id: ${{ inputs.runtime_artifact_run_id || github.run_id }}
+          run-id: ${{ inputs.repackage_runtime && github.run_id || inputs.runtime_artifact_run_id || github.run_id }}
           github-token: ${{ github.token }}
 
       - name: Install iSH build dependencies
@@ -336,7 +372,7 @@ jobs:
           tar -xOf "$app_path/root.tar.gz" ./usr/local/share/codexpad/runtime.json \
             > artifacts/runtime-manifest.json
           jq -n --arg appRevision "$GITHUB_SHA" \
-            --arg runtimeRun '${{ inputs.runtime_artifact_run_id || github.run_id }}' \
+            --arg runtimeRun '${{ inputs.repackage_runtime && github.run_id || inputs.runtime_artifact_run_id || github.run_id }}' \
             --arg runtimeSHA256 "$(shasum -a 256 "$app_path/root.tar.gz" | cut -d ' ' -f1)" \
             --slurpfile upstreams Dependencies/upstreams.json \
             --slurpfile runtime artifacts/runtime-manifest.json \
