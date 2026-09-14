@@ -19,17 +19,21 @@ struct CodexPadRootView: View {
     @State private var showsRequests = false
 
     var body: some View {
-        adaptiveWorkspace
-        .background {
-            GeometryReader { geometry in
-                Color.clear
+        // Measure the containing window, not the detail area that shrinks
+        // when an inspector opens. Measuring the latter dismisses the panel
+        // as soon as it changes the layout on an 11-inch iPad.
+        GeometryReader { geometry in
+            workspaceContent
                     .onAppear { windowWidth = geometry.size.width; configureInitialLayout() }
                     .onChange(of: geometry.size.width) { _, width in
                         windowWidth = width
                         prioritizeConversationIfNeeded()
                     }
-            }
         }
+    }
+
+    private var workspaceContent: some View {
+        adaptiveWorkspace
         .inspector(isPresented: $showsWorkbench) {
             CodexWorkbenchView(model: model)
                 .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
@@ -194,12 +198,12 @@ struct CodexPadRootView: View {
                             else { showsWorkbench.toggle() }
                         } label: {
                             Label(
-                                showsWorkbench ? "Hide workbench" : "Show workbench",
+                                showsWorkbench || showsCompactWorkbench ? "Hide workbench" : "Show workbench",
                                 systemImage: "sidebar.right"
                             )
                         }
                         .accessibilityIdentifier("codexpad.toggle-workbench")
-                        .accessibilityValue(showsWorkbench ? "Shown" : "Hidden")
+                        .accessibilityValue(showsWorkbench || showsCompactWorkbench ? "Shown" : "Hidden")
                         .keyboardShortcut("i", modifiers: [.command, .option])
                 }
             }

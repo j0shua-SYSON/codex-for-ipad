@@ -3,11 +3,22 @@ import SwiftUI
 struct CodexWorkbenchView: View {
     @ObservedObject var model: CodexWorkspaceModel
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @ScaledMetric(relativeTo: .body) private var planIconSize: CGFloat = 22
 
     var body: some View {
         VStack(spacing: 0) {
             Group {
-                if dynamicTypeSize.isAccessibilitySize { tabPicker.pickerStyle(.menu) }
+                if dynamicTypeSize.isAccessibilitySize {
+                    Menu {
+                        tabPicker
+                    } label: {
+                        Label(model.workbenchTab.rawValue, systemImage: "chevron.up.chevron.down")
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .accessibilityLabel("Workbench section")
+                    .accessibilityValue(model.workbenchTab.rawValue)
+                    .accessibilityIdentifier("codexpad.workbench-tabs")
+                }
                 else { tabPicker.pickerStyle(.segmented) }
             }
             .padding(16)
@@ -58,7 +69,7 @@ struct CodexWorkbenchView: View {
                         HStack(alignment: .top, spacing: 12) {
                             Image(systemName: planIcon(step.status))
                                 .foregroundStyle(planColor(step.status))
-                                .frame(width: 22, height: 22)
+                                .frame(width: planIconSize, height: planIconSize)
                             Text(step.text)
                                 .font(.body)
                                 .foregroundStyle(CodexPalette.ink)
