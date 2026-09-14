@@ -1,0 +1,46 @@
+name: Real iSH runtime probe
+on:
+  workflow_dispatch:
+    inputs:
+      artifact_run_id:
+        description: Successful compatibility run containing codexpad-runtime-i686
+        required: true
+        type: string
+permissions:
+  contents: read
+  actions: read
+jobs:
+  probe:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          submodules: recursive
+          persist-credentials: false
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: codexpad-runtime-i686
+          path: artifacts/runtime
+          run-id: ${{ inputs.artifact_run_id }}
+          github-token: ${{ github.token }}
+      - name: Build the actual iSH emulator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libarchive-dev meson ninja-build
+          meson setup build -Dengine=asbestos -Dkernel=ish
+          ninja -C build
+      - name: Import and execute packaged guest
+        shell: bash
+        run: |
+          set -euo pipefail
+          tar -xOf artifacts/runtime/codexpad-rootfs.tar.gz ./usr/local/share/codexpad/runtime.json | tee artifacts/runtime-manifest.json
+          build/tools/fakefsify artifacts/runtime/codexpad-rootfs.tar.gz artifacts/guest
+          python3 scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest | tee artifacts/runtime-probe.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: Real-iSH-runtime-evidence
+          path: |
+            artifacts/runtime-probe.log
+            artifacts/runtime-manifest.json

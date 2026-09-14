@@ -1,0 +1,33 @@
+name: Native model regression
+on:
+  workflow_dispatch:
+  push:
+    paths: ["app/CodexPad/**", "tests/codexpad/**", ".github/workflows/native-regression.yml"]
+  pull_request:
+    paths: ["app/CodexPad/**", "tests/codexpad/**", ".github/workflows/native-regression.yml"]
+permissions:
+  contents: read
+jobs:
+  model:
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
+      - name: Compile and run production model regression
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p artifacts
+          swiftc -parse-as-library \
+            app/CodexPad/CodexJSON.swift app/CodexPad/CodexModels.swift \
+            app/CodexPad/CodexRPC.swift app/CodexPad/CodexFeatureCatalog.swift \
+            app/CodexPad/CodexWorkspaceModel.swift tests/codexpad/ModelRegression.swift \
+            -o artifacts/model-regression
+          artifacts/model-regression | tee artifacts/model-regression.log
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: always()
+        with:
+          name: Native-model-regression
+          path: artifacts/model-regression.log

@@ -154,6 +154,10 @@ private struct CodexFeatureDetailView: View {
             VStack(alignment: .leading, spacing: 20) {
                 header
 
+                ForEach(model.pendingRequests) { request in
+                    CodexServerRequestView(model: model, request: request)
+                }
+
                 if let reason = feature.incompatibilityReason {
                     Label {
                         VStack(alignment: .leading, spacing: 4) {

@@ -2,15 +2,14 @@ import SwiftUI
 
 struct CodexWorkbenchView: View {
     @ObservedObject var model: CodexWorkspaceModel
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: 0) {
-            Picker("Workbench", selection: $model.workbenchTab) {
-                ForEach(WorkbenchTab.allCases) { tab in
-                    Text(tab.rawValue).tag(tab)
-                }
+            Group {
+                if dynamicTypeSize.isAccessibilitySize { tabPicker.pickerStyle(.menu) }
+                else { tabPicker.pickerStyle(.segmented) }
             }
-            .pickerStyle(.segmented)
             .padding(16)
 
             Divider().overlay(CodexPalette.line)
@@ -29,6 +28,13 @@ struct CodexWorkbenchView: View {
         .accessibilityIdentifier("codexpad.workbench")
         .navigationTitle("Workbench")
         .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var tabPicker: some View {
+        Picker("Workbench", selection: $model.workbenchTab) {
+            ForEach(WorkbenchTab.allCases) { tab in Text(tab.rawValue).tag(tab) }
+        }
+        .accessibilityIdentifier("codexpad.workbench-tabs")
     }
 
     private var planView: some View {

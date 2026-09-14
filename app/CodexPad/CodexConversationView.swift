@@ -4,13 +4,15 @@ struct CodexConversationView: View {
     @ObservedObject var model: CodexWorkspaceModel
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @State private var followsOutput = true
 
     var body: some View {
         Group {
-            if !model.enginePhase.isReady {
-                EngineUnavailableView(model: model)
-            } else if let thread = model.selectedThread {
+            if let thread = model.selectedThread {
                 conversation(thread)
+            } else if !model.enginePhase.isReady {
+                EngineUnavailableView(model: model)
             } else {
                 WelcomeWorkspaceView(model: model)
             }
@@ -24,24 +26,31 @@ struct CodexConversationView: View {
         VStack(spacing: 0) {
             conversationHeader(thread)
             Divider().overlay(CodexPalette.line)
+            if !model.enginePhase.isReady {
+                Button("Reconnect local engine") { Task { await model.retryConnection() } }
+                    .buttonStyle(.bordered).padding(8)
+            }
             timeline
             ComposerBar(model: model)
         }
     }
 
     private func conversationHeader(_ thread: CodexThreadRecord) -> some View {
-        HStack(spacing: 12) {
+        let layout = dynamicTypeSize.isAccessibilitySize
+            ? AnyLayout(VStackLayout(alignment: .leading, spacing: 8))
+            : AnyLayout(HStackLayout(spacing: 12))
+        return layout {
             VStack(alignment: .leading, spacing: 3) {
                 Text(thread.title)
                     .font(.headline)
                     .foregroundStyle(CodexPalette.ink)
-                    .lineLimit(1)
+                    .lineLimit(dynamicTypeSize.isAccessibilitySize ? 2 : 1)
                 Label(thread.cwd, systemImage: "folder")
                     .font(.caption.monospaced())
                     .foregroundStyle(CodexPalette.secondaryInk)
                     .lineLimit(1)
             }
-            Spacer()
+            if !dynamicTypeSize.isAccessibilitySize { Spacer() }
             EngineStatusPill(phase: model.enginePhase)
         }
         .padding(.horizontal, 20)
@@ -72,23 +81,7 @@ struct CodexConversationView: View {
                     }
 
                     ForEach(relevantRequests) { request in
-                        Group {
-                            if request.kind == .question {
-                                QuestionRequestCard(request: request) { values in
-                                    Task { await model.answer(request, values: values) }
-                                }
-                            } else if request.kind == .advanced {
-                                AdvancedServerRequestCard(request: request) { result in
-                                    await model.answerAdvancedRequest(request, resultText: result)
-                                } reject: {
-                                    Task { await model.rejectAdvancedRequest(request) }
-                                }
-                            } else {
-                                ApprovalRequestCard(request: request) { choice in
-                                    Task { await model.resolve(request, choice: choice) }
-                                }
-                            }
-                        }
+                        CodexServerRequestView(model: model, request: request)
                         .padding(.leading, 42)
                     }
 
@@ -97,6 +90,8 @@ struct CodexConversationView: View {
                             .id("working")
                     }
                     Color.clear.frame(height: 1).id("timeline-end")
+                        .onAppear { followsOutput = true }
+                        .onDisappear { followsOutput = false }
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 18)
@@ -104,14 +99,28 @@ struct CodexConversationView: View {
                 .frame(maxWidth: .infinity)
             }
             .scrollDismissesKeyboard(model.desktopModeEnabled ? .never : .interactively)
-            .onChange(of: model.selectedTimeline.count) { _, _ in
-                scrollToEnd(proxy)
+            .onChange(of: model.selectedTimeline) { _, _ in
+                if followsOutput { proxy.scrollTo("timeline-end", anchor: .bottom) }
             }
             .onChange(of: model.pendingRequests.count) { _, _ in
                 scrollToEnd(proxy)
             }
             .onChange(of: model.isTurnRunning) { _, _ in
+                if followsOutput { scrollToEnd(proxy) }
+            }
+            .onChange(of: model.selectedThreadID) { _, _ in
+                followsOutput = true
                 scrollToEnd(proxy)
+            }
+            .overlay(alignment: .bottomTrailing) {
+                if !followsOutput {
+                    Button("Latest", systemImage: "arrow.down") {
+                        followsOutput = true
+                        scrollToEnd(proxy)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .padding()
+                }
             }
         }
     }
@@ -136,6 +145,7 @@ struct CodexConversationView: View {
 private struct ComposerBar: View {
     @ObservedObject var model: CodexWorkspaceModel
     @FocusState private var isFocused: Bool
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     var body: some View {
         VStack(spacing: 8) {
@@ -143,7 +153,7 @@ private struct ComposerBar: View {
             HStack(alignment: .bottom, spacing: 10) {
                 TextField("Ask Codex to change, explain, or verify…", text: $model.composerText, axis: .vertical)
                     .font(.body)
-                    .lineLimit(1...7)
+                    .lineLimit(1...(dynamicTypeSize.isAccessibilitySize ? 3 : 7))
                     .frame(minWidth: 80, maxWidth: .infinity)
                     .focused($isFocused)
                     .padding(.horizontal, 14)
@@ -189,7 +199,7 @@ private struct ComposerBar: View {
                     }
                     .buttonStyle(.borderedProminent)
                     .tint(CodexPalette.cobalt)
-                    .disabled(model.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    .disabled(!model.enginePhase.isReady || model.composerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     .keyboardShortcut(.return, modifiers: .command)
                     .accessibilityLabel("Send message")
                     .accessibilityIdentifier("codexpad.send")
@@ -213,7 +223,7 @@ private struct ComposerBar: View {
     }
 
     private var modelControls: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal, showsIndicators: true) {
             HStack(spacing: 8) {
                 Menu {
                     ForEach(model.availableModels.filter { !$0.hidden }) { option in

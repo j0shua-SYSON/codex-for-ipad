@@ -11,6 +11,12 @@ struct CodexSettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
+                if let error = model.errorBanner {
+                    Section("Action failed") {
+                        Text(error).foregroundStyle(CodexPalette.danger).textSelection(.enabled)
+                        Button("Dismiss error") { model.errorBanner = nil }
+                    }
+                }
                 inputSection
                 modelSection
                 accountSection
@@ -252,10 +258,8 @@ struct CodexSettingsView: View {
             LabeledContent("Platform exceptions", value: "\(CodexFeatureCatalog.unavailableFeatureCount)")
             if model.showsCompleteFeatureSet {
                 Button("Open complete Feature Center", systemImage: "square.grid.3x3") {
+                    model.opensFeaturesAfterSettings = true
                     dismiss()
-                    DispatchQueue.main.async {
-                        model.showsFeatureCenter = true
-                    }
                 }
                 .accessibilityIdentifier("codexpad.open-feature-center")
             }
