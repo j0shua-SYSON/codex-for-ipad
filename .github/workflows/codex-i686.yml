@@ -109,7 +109,7 @@ jobs:
           set -euo pipefail
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs \
             | sh -s -- -y --profile minimal --default-toolchain "$RUST_TOOLCHAIN" \
-                --target "$CODEX_TARGET"
+                --target "$CODEX_TARGET" --component rust-src
           echo "$CARGO_HOME/bin" >> "$GITHUB_PATH"
 
       - name: Validate native protocol contract

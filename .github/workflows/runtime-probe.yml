@@ -38,7 +38,7 @@ jobs:
       - name: Build the actual iSH emulator
         run: |
           sudo apt-get update
-          sudo apt-get install -y libarchive-dev meson ninja-build gdb
+          sudo apt-get install -y libarchive-dev meson ninja-build gdb python3-websocket
           meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug -Dlog=strace -Dlog_handler=stderr
           ninja -C build
           sudo sysctl -w kernel.core_pattern="$GITHUB_WORKSPACE/artifacts/core.%p"
@@ -69,6 +69,7 @@ jobs:
           timeout 30 build/ish -f artifacts/guest /bin/busybox echo ISH_BASELINE_OK
           timeout 60 build/ish -f artifacts/guest /usr/local/libexec/codexpad/codex-app-server --help
           python3 scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --stderr-log artifacts/guest-syscalls.log | tee artifacts/runtime-probe.log
+          /usr/bin/python3 scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --transport websocket --stderr-log artifacts/guest-websocket.log | tee artifacts/websocket-probe.log
       - name: Diagnose guest crash
         if: failure()
         shell: bash
@@ -103,3 +104,5 @@ jobs:
             artifacts/instruction-disassembly.txt
             artifacts/guest-symbols.txt
             artifacts/guest-syscalls.log
+            artifacts/guest-websocket.log
+            artifacts/websocket-probe.log
