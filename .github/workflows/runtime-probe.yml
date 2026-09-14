@@ -31,15 +31,18 @@ jobs:
           meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug
           ninja -C build
           sudo sysctl -w kernel.core_pattern="$GITHUB_WORKSPACE/artifacts/core.%p"
-      - name: Exercise the MOVMSKPS decoder with all sign masks
+      - name: Exercise SSE instructions and masked futex waits
         shell: bash
         run: |
           ulimit -c unlimited
           mkdir -p artifacts/instruction-test
-          as --32 tests/codexpad/movmskps.S -o artifacts/instruction-test/movmskps.o
-          ld -m elf_i386 artifacts/instruction-test/movmskps.o -o artifacts/instruction-test/movmskps
-          objdump -d artifacts/instruction-test/movmskps | tee artifacts/instruction-disassembly.txt
-          build/ish -r artifacts/instruction-test /movmskps
+          for test in movmskps futex-bitset; do
+            as --32 "tests/codexpad/$test.S" -o "artifacts/instruction-test/$test.o"
+            ld -m elf_i386 "artifacts/instruction-test/$test.o" -o "artifacts/instruction-test/$test"
+            objdump -d "artifacts/instruction-test/$test" >> artifacts/instruction-disassembly.txt
+            timeout 15 build/ish -r artifacts/instruction-test "/$test"
+            echo "PASS: real iSH $test regression"
+          done
       - name: Import and execute packaged guest
         shell: bash
         run: |

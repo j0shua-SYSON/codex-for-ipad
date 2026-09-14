@@ -145,6 +145,7 @@ void vec_cvtsd2ss64(NO_CPU, const double *src, float *dst);
 void vec_cvtsi2ss32(NO_CPU, const int32_t *src, float *dst);
 void vec_cvttss2si32(NO_CPU, const float *src, int32_t *dst);
 void vec_cvtss2sd32(NO_CPU, const float *src, double *dst);
+void vec_cvtdq2pd64(NO_CPU, const int32_t *src, union xmm_reg *dst);
 
 void vec_cvttpd2dq64(NO_CPU, const union xmm_reg *src, union xmm_reg *dst);
 void vec_cvttps2dq32(NO_CPU, const union xmm_reg *src, union xmm_reg *dst);

@@ -423,6 +423,14 @@ VEC_CVT(si2ss32, int32_t, float)
 VEC_CVT(tss2si32, float, int32_t)
 VEC_CVT(ss2sd32, float, double)
 
+void vec_cvtdq2pd64(NO_CPU, const int32_t *src, union xmm_reg *dst) {
+    // The source is only 64 bits, even for a memory operand. Snapshot both
+    // integers first because the source and destination registers may alias.
+    int32_t low = src[0], high = src[1];
+    dst->f64[0] = (double) low;
+    dst->f64[1] = (double) high;
+}
+
 PACKED_VEC_CVT(tpd2dq64, f64, u32, double, int32_t, 2)
 PACKED_VEC_CVT(tps2dq32, f32, u32, float, int32_t, 4)
 

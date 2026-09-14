@@ -1330,6 +1330,9 @@ restart:
                         case 0xc2: TRACEI("cmpss xmm:modrm, xmm, imm8");
                                    READMODRM; READIMM8; V_OP_IMM(single_fcmp, xmm_modrm_val, xmm_modrm_reg,32); break;
 
+                        case 0xe6: TRACEI("cvtdq2pd xmm:modrm, xmm");
+                                   READMODRM; V_OP(cvtdq2pd, xmm_modrm_val, xmm_modrm_reg,64); break;
+
                         default: TRACE("undefined"); UNDEFINED;
                     }
                     break;
