@@ -116,6 +116,8 @@ struct ModelRegression {
         let creator = model(createRPC)
         creator.selectedThreadID = nil
         creator.composerText = "Only one thread"
+        creator.selectedReasoningEffort = "low"
+        creator.selectedServiceTier = "fast"
         let creation = Gate()
         createRPC.handler = { method, _ in
             if method == "thread/start" { return await creation.response() }
@@ -125,8 +127,35 @@ struct ModelRegression {
         await until { creation.continuation != nil }
         await creator.sendComposer()
         check(createRPC.calls.filter { $0.0 == "thread/start" }.count == 1, "double send cannot create duplicate threads")
+        creator.composerText = "Next prompt typed while creating"
+        creator.selectedReasoningEffort = "high"
+        creator.selectedServiceTier = "flex"
         creation.release(.object(["thread": .object(["id": .string("new"), "cwd": .string("/root/workspace")])]))
         await first.value
+        let createdTurn = createRPC.calls.last?.1
+        check(createdTurn?["effort"] == .string("low") && createdTurn?["serviceTier"] == .string("fast"), "queued first send retains the controls selected when Send was clicked")
+        check(creator.composerText == "Next prompt typed while creating", "first send preserves text typed during thread creation")
+        creator.selectedThreadID = nil
+        check(creator.composerText.isEmpty, "sending the initial draft does not leave a duplicate new-thread draft")
+
+        let recoveryRPC = FakeRPC()
+        let recovery = model(recoveryRPC)
+        recovery.composerText = "Rejected prompt"
+        let rejection = Gate()
+        recoveryRPC.handler = { _, _ in
+            _ = await rejection.response()
+            throw CodexRPCError(code: -1, message: "rejected")
+        }
+        let rejectedSend = Task { await recovery.sendComposer() }
+        await until { rejection.continuation != nil }
+        recovery.composerText = "Newer unsent text"
+        recovery.selectedThreadID = "B"
+        recovery.composerText = "Unrelated B draft"
+        rejection.release(.null)
+        await rejectedSend.value
+        check(recovery.composerText == "Unrelated B draft", "late send failure cannot replace another thread's draft")
+        recovery.selectedThreadID = "A"
+        check(recovery.composerText == "Rejected prompt\n\nNewer unsent text", "failed sends preserve both rejected text and a newer draft")
 
         let request: JSONValue = .object([
             "threadId": .string("A"), "availableDecisions": .array([.string("decline"), .string("cancel")])
