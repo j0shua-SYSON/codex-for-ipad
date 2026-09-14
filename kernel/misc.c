@@ -6,6 +6,15 @@
 
 int_t sys_prctl(dword_t option, uint_t arg2, uint_t UNUSED(arg3), uint_t UNUSED(arg4), uint_t UNUSED(arg5)) {
     switch (option) {
+        case 1: // PR_SET_PDEATHSIG
+            if (arg2 > NUM_SIGS)
+                return _EINVAL;
+            current->pdeath_signal = arg2;
+            return 0;
+        case 2: { // PR_GET_PDEATHSIG
+            int signal = current->pdeath_signal;
+            return user_put(arg2, signal) ? _EFAULT : 0;
+        }
         case PRCTL_SET_KEEPCAPS_:
             // stub
             return 0;

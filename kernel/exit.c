@@ -84,6 +84,12 @@ noreturn void do_exit(int status) {
     struct task *new_parent = find_new_parent(current);
     struct task *child, *tmp;
     list_for_each_entry_safe(&current->children, child, tmp, siblings) {
+        int signal = child->pdeath_signal;
+        if (signal != 0 && !child->exiting && !child->zombie)
+            send_signal(child, signal, (struct siginfo_) {
+                .code = SI_USER_, .kill.pid = current->group->leader->pid,
+                .kill.uid = current->uid,
+            });
         child->parent = new_parent;
         list_remove(&child->siblings);
         list_add(&new_parent->children, &child->siblings);

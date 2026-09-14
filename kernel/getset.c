@@ -48,6 +48,7 @@ int_t sys_setuid(uid_t_ uid) {
         if (uid != current->uid && uid != current->suid)
             return _EPERM;
     }
+    if (current->euid != uid) current->pdeath_signal = 0;
     current->euid = uid;
     return 0;
 }
@@ -65,6 +66,7 @@ dword_t sys_setresuid(uid_t_ ruid, uid_t_ euid, uid_t_ suid) {
 
     if (ruid != (uid_t) -1)
         current->uid = ruid;
+    if (euid != (uid_t) -1 && current->euid != euid) current->pdeath_signal = 0;
     if (euid != (uid_t) -1)
         current->euid = euid;
     if (suid != (uid_t) -1)
@@ -113,6 +115,7 @@ int_t sys_setgid(uid_t_ gid) {
         if (gid != current->gid && gid != current->sgid)
             return _EPERM;
     }
+    if (current->egid != gid) current->pdeath_signal = 0;
     current->egid = gid;
     return 0;
 }
@@ -130,6 +133,7 @@ dword_t sys_setresgid(uid_t_ rgid, uid_t_ egid, uid_t_ sgid) {
 
     if (rgid != (uid_t) -1)
         current->gid = rgid;
+    if (egid != (uid_t) -1 && current->egid != egid) current->pdeath_signal = 0;
     if (egid != (uid_t) -1)
         current->egid = egid;
     if (sgid != (uid_t) -1)
