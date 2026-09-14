@@ -17,7 +17,8 @@ def main():
     parser.add_argument("--stderr-log")
     parser.add_argument("--transport", choices=["stdio", "websocket"], default="stdio")
     args = parser.parse_args()
-    diagnostics = open(args.stderr_log, "w") if args.stderr_log else None
+    # Host syscall traces may contain arbitrary guest bytes, not UTF-8 text.
+    diagnostics = open(args.stderr_log, "wb") if args.stderr_log else None
     address = "ws://127.0.0.1:4500" if args.transport == "websocket" else "stdio://"
     connection = None
     stopping = threading.Event()
@@ -137,8 +138,8 @@ def main():
         assert "No such file" in missing["message"] or "os error 2" in missing["message"], missing
         if diagnostics:
             diagnostics.flush()
-            with open(args.stderr_log) as log:
-                if any("panicked at" in line for line in log):
+            with open(args.stderr_log, "rb") as log:
+                if any(b"panicked at" in line for line in log):
                     raise RuntimeError("A guest background thread panicked; see the diagnostic log")
         print(f"PASS: real iSH {args.transport} command execution, Git and ripgrep. Inference/authentication remain untested.", flush=True)
     finally:
