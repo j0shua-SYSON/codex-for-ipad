@@ -14,8 +14,11 @@ pid_t_ sys_getppid(void) {
     STRACE("getppid()");
     pid_t_ ppid;
     lock(&pids_lock);
-    if (current->parent != NULL)
-        ppid = current->parent->pid;
+    // Linux reports the parent process's TGID, not the TID of the thread
+    // that called clone. All threads in a process share this parent PID.
+    struct task *parent = current->group->leader->parent;
+    if (parent != NULL)
+        ppid = parent->tgid;
     else
         ppid = 0;
     unlock(&pids_lock);
