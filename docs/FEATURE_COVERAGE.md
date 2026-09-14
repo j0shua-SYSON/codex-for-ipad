@@ -1,6 +1,6 @@
 # Codex GUI feature coverage
 
-CodexPad treats GUI parity as a compatibility contract. For the pinned Codex revision, the catalog contains all **129 client request methods**, all **11 server-to-client request methods**, and all **72 server notifications**.
+For candidate `5b1d6560181680f95cde95c14ed042acc02248ed`, the catalog contains all **166 client request methods**, **11 server-to-client request methods**, and **84 server notifications**. Exact-set coverage verifies that no protocol method is silently omitted; it does not prove runtime support or a purpose-built interface for every operation.
 
 ## How every feature is reachable
 
@@ -11,12 +11,12 @@ CodexPad treats GUI parity as a compatibility contract. For the pinned Codex rev
 
 ## Pinned surface summary
 
-- 125 user operations are executable in the GUI: 16 purpose-built native routes and 109 Advanced routes.
+- 162 user operations have GUI routes: 16 native routes and 146 Advanced JSON routes. Stable-schema fields and nested definitions are readable offline; experimental requests may require consulting upstream Rust definitions.
 - `initialize` is automatic and cannot safely be repeated during an active JSON-RPC connection.
 - Two Windows sandbox methods are incompatible with iPadOS.
 - `mock/experimentalMethod` is an upstream protocol test fixture, not a user feature.
 
-Incoming `account/chatgptAuthTokens/refresh` requests are unavailable because CodexPad uses the local app-server's managed login rather than client-owned external tokens. `attestation/generate` is also unavailable because the pinned protocol expects an opaque client attestation provider that this independent unsigned port cannot issue. Both are surfaced explicitly if requested. Experimental Code Mode remains unavailable because Rusty V8 has no i686-musl distribution; normal turns and tools do not use it.
+Incoming `account/chatgptAuthTokens/refresh` requests are unavailable because CodexPad uses the local app-server's managed login rather than client-owned external tokens. `attestation/generate` is also unavailable because this unsigned port has no client attestation provider. Both are surfaced explicitly. Code Mode's separate V8 host is not bundled for i686-musl. See [verification status](VERIFICATION.md) for other unverified runtime dependencies.
 
 ## Update gate
 
