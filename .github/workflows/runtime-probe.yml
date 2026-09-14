@@ -30,6 +30,13 @@ jobs:
           sudo apt-get install -y libarchive-dev meson ninja-build gdb
           meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug
           ninja -C build
+      - name: Exercise the MOVMSKPS decoder with all sign masks
+        shell: bash
+        run: |
+          mkdir -p artifacts/instruction-test
+          as --32 tests/codexpad/movmskps.S -o artifacts/instruction-test/movmskps.o
+          ld -m elf_i386 artifacts/instruction-test/movmskps.o -o artifacts/instruction-test/movmskps
+          build/ish -r artifacts/instruction-test /movmskps
       - name: Import and execute packaged guest
         shell: bash
         run: |

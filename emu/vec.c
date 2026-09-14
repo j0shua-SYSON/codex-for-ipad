@@ -550,6 +550,13 @@ void vec_movmask_b128(NO_CPU, const union xmm_reg *src, uint32_t *dst) {
             *dst |= 1 << i;
     }
 }
+void vec_fmovmask_s128(NO_CPU, const union xmm_reg *src, uint32_t *dst) {
+    // MOVMSKPS extracts raw sign bits, including negative zero and NaNs.
+    // This is a bit operation, not a floating-point comparison.
+    *dst = 0;
+    for (unsigned i = 0; i < array_size(src->u32); i++)
+        *dst |= (src->u32[i] >> 31) << i;
+}
 void vec_fmovmask_d128(NO_CPU, const union xmm_reg *src, uint32_t *dst) {
     *dst = 0;
     for (unsigned i = 0; i < array_size(src->f64); i++) {

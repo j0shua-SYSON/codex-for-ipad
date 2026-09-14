@@ -1,13 +1,41 @@
 name: Native model regression
 on:
   workflow_dispatch:
+    inputs:
+      evidence_run_id:
+        description: Optional previous UI run to export for review
+        type: string
+      evidence_artifact:
+        description: UI artifact name to export
+        type: string
   push:
     paths: ["app/CodexPad/**", "tests/codexpad/**", ".github/workflows/native-regression.yml"]
   pull_request:
     paths: ["app/CodexPad/**", "tests/codexpad/**", ".github/workflows/native-regression.yml"]
 permissions:
   contents: read
+  actions: read
 jobs:
+  export-ui:
+    if: inputs.evidence_run_id != '' && github.event_name == 'workflow_dispatch'
+    runs-on: macos-26
+    timeout-minutes: 10
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c
+        with:
+          name: ${{ inputs.evidence_artifact }}
+          run-id: ${{ inputs.evidence_run_id }}
+          github-token: ${{ github.token }}
+          path: saved
+      - name: Export attachments and results
+        run: |
+          mkdir -p review
+          xcrun xcresulttool export attachments --path saved/CodexPad-UI.xcresult --output-path review/attachments
+          xcrun xcresulttool get test-results summary --path saved/CodexPad-UI.xcresult > review/summary.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: Reviewed-UI-evidence
+          path: review
   model:
     runs-on: macos-26
     timeout-minutes: 10
