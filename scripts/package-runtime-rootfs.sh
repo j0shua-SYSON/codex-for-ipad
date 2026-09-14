@@ -40,12 +40,17 @@ docker run --rm --platform linux/386 \
         status=0
         apk --root /target --arch x86 --no-cache add \
             bash ca-certificates coreutils curl findutils git jq less \
-            openssh-client patch python3 ripgrep || status=$?
+            openrc openssh-client patch python3 ripgrep || status=$?
         if ! chown -R "$HOST_UID:$HOST_GID" /target; then
             exit 1
         fi
         exit "$status"
     '
+
+# The minimal iSH base references OpenRC in inittab but doesn't include it.
+# A service symlink alone cannot start the engine on a normal app boot.
+test -x "$root_dir/sbin/openrc"
+test -x "$root_dir/sbin/openrc-run"
 
 install -D -m 0755 "$CODEX_BINARY" \
     "$root_dir/usr/local/libexec/codexpad/codex-app-server"

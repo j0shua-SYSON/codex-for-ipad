@@ -128,6 +128,13 @@ jobs:
             -o run -k 'thread backtrace all' -k 'register read' \
             -- build/ish -f artifacts/guest /bin/sh -lc 'echo SHELL_OK' \
             > artifacts/darwin-diagnostics/lldb.txt 2>&1 || true
+          # Diagnose the actual concurrent Codex workload, not only /bin/sh.
+          for attempt in 1 2 3; do
+            timeout 180 "$PROBE_PYTHON" scripts/probe-ish-runtime.py \
+              --ish build/ish --root artifacts/guest --transport websocket --debugger-lldb \
+              --stderr-log "artifacts/darwin-diagnostics/syscalls-$attempt.log" \
+              > "artifacts/darwin-diagnostics/codex-lldb-$attempt.log" 2>&1 || true
+          done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:

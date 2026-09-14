@@ -17,9 +17,12 @@ def main():
     parser.add_argument("--stderr-log")
     parser.add_argument("--transport", choices=["stdio", "websocket"], default="stdio")
     parser.add_argument("--startup", choices=["server", "init"], default="server")
+    parser.add_argument("--debugger-lldb", action="store_true")
     args = parser.parse_args()
     if args.startup == "init" and args.transport != "websocket":
         parser.error("init startup requires WebSocket transport")
+    if args.debugger_lldb and (args.transport != "websocket" or args.startup != "server"):
+        parser.error("LLDB diagnostics require direct WebSocket server startup")
     # Host syscall traces may contain arbitrary guest bytes, not UTF-8 text.
     diagnostics = open(args.stderr_log, "wb") if args.stderr_log else None
     address = "ws://127.0.0.1:4500" if args.transport == "websocket" else "stdio://"
@@ -32,8 +35,15 @@ def main():
         import pty
         console_master, console_slave = pty.openpty()
         guest_command = ["/sbin/init"]
+    launch = [args.ish, "-f", args.root, "-d", "/root/workspace", *guest_command]
+    if args.debugger_lldb:
+        launch = ["lldb", "--batch",
+            "-o", "process handle SIGUSR1 -n false -p true -s false",
+            "-o", "process handle SIGPIPE -n false -p true -s false",
+            "-o", "run", "-k", "thread backtrace all", "-k", "register read",
+            "-k", "p current->cpu", "--", *launch]
     process = subprocess.Popen(
-        [args.ish, "-f", args.root, "-d", "/root/workspace", *guest_command],
+        launch,
         stdin=console_slave if console_slave is not None else subprocess.PIPE,
         stdout=console_slave if console_slave is not None else subprocess.PIPE,
         stderr=diagnostics or subprocess.STDOUT,
