@@ -25,6 +25,10 @@ The latest-upstream candidate uses four target-specific adaptations:
 `59807616e1fa2540724bfbac14d7976d7e4a3860` are required. `RUSTC_BOOTSTRAP=1` is
 scoped to the `cargo zigbuild -Z build-std=std,panic_abort` invocation; this uses
 an unstable Cargo facility with a pinned compiler, not a floating nightly.
+The patch step uses an isolated Git root and verifies the resulting source as
+well as reverse applicability. Before compiling Codex, a small Rust program
+spawns itself from a worker thread inside the actual iSH emulator and checks
+parent-death setup, stdout/stderr, a nonzero exit and missing-executable errors.
 Toolchain upgrades must review this patch and pass the real Linux/Darwin guest
 probes before changing the pin. Remove it if iSH implements correct packet
 sockets and any required pidfd support, or upstream Rust supplies a suitable

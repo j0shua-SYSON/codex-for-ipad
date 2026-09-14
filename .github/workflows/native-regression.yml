@@ -1,5 +1,6 @@
 name: Native model regression
 on:
+  workflow_call:
   workflow_dispatch:
     inputs:
       evidence_run_id:
