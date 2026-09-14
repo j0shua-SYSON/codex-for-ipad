@@ -127,6 +127,19 @@ jobs:
             -maxdepth 1 -type f \
             \( -name 'CodexPad*' -o -name 'iSH*' \) \
             -exec cp '{}' artifacts/diagnostics/ \;
+          for pid in $(pgrep -x CodexPad); do
+            sample "$pid" 2 -file "artifacts/diagnostics/CodexPad-$pid.sample.txt" || true
+          done
+
+      - name: Export directly reviewable screenshots
+        if: always()
+        shell: bash
+        run: |
+          mkdir -p artifacts/screenshots
+          xcrun simctl io "$SIMULATOR_UDID" screenshot artifacts/screenshots/final.png || true
+          xcrun xcresulttool export attachments \
+            --path artifacts/CodexPad-UI.xcresult \
+            --output-path artifacts/screenshots/attachments || true
 
       - name: Upload UI test evidence
         if: always()
@@ -136,6 +149,7 @@ jobs:
           path: |
             artifacts/CodexPad-UI.xcresult
             artifacts/diagnostics
+            artifacts/screenshots
           if-no-files-found: warn
           compression-level: 6
           retention-days: 14
