@@ -1,7 +1,7 @@
 diff --git a/library/std/src/sys/process/unix/unix.rs b/library/std/src/sys/process/unix/unix.rs
 --- a/library/std/src/sys/process/unix/unix.rs
 +++ b/library/std/src/sys/process/unix/unix.rs
-@@ -70,7 +70,16 @@ impl Command {
+@@ -74,8 +74,17 @@ impl Command {
              return Ok((ret, ours));
          }
  
@@ -17,10 +17,11 @@ diff --git a/library/std/src/sys/process/unix/unix.rs b/library/std/src/sys/proc
 +
 +        #[cfg(all(target_os = "linux", not(all(target_arch = "x86", target_env = "musl"))))]
          let (input, output) = sys::net::Socket::new_pair(libc::AF_UNIX, libc::SOCK_SEQPACKET)?;
+ 
 -        #[cfg(not(target_os = "linux"))]
 +        #[cfg(any(not(target_os = "linux"), all(target_arch = "x86", target_env = "musl")))]
          let (input, output) = sys::pipe::pipe()?;
-@@ -90,7 +99,7 @@ impl Command {
+@@ -97,7 +106,7 @@ impl Command {
              crate::panic::always_abort();
              mem::forget(env_lock); // avoid non-async-signal-safe unlocking
              drop(input);
@@ -29,7 +30,7 @@ diff --git a/library/std/src/sys/process/unix/unix.rs b/library/std/src/sys/proc
              if self.get_create_pidfd() {
                  self.send_pidfd(&output);
              }
-@@ -116,10 +125,10 @@ impl Command {
+@@ -124,10 +133,10 @@ impl Command {
          drop(env_lock);
          drop(output);
  
