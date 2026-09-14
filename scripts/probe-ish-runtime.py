@@ -14,11 +14,13 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--ish", required=True)
     parser.add_argument("--root", required=True)
+    parser.add_argument("--stderr-log")
     args = parser.parse_args()
+    diagnostics = open(args.stderr_log, "w") if args.stderr_log else None
     process = subprocess.Popen(
         [args.ish, "-f", args.root, "-d", "/root/workspace", "/bin/sh", "-lc",
          "echo CODEXPAD_SHELL_READY >&2; /usr/local/libexec/codexpad/codex-app-server --listen stdio://; result=$?; echo CODEXPAD_SERVER_EXIT=$result >&2; /bin/dmesg >&2; exit $result"],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=diagnostics or subprocess.STDOUT,
         text=True, bufsize=1, start_new_session=True,
     )
     messages = queue.Queue()
@@ -87,6 +89,8 @@ def main():
             except subprocess.TimeoutExpired:
                 os.killpg(process.pid, signal.SIGKILL)
                 process.wait()
+        if diagnostics:
+            diagnostics.close()
 
 
 if __name__ == "__main__":

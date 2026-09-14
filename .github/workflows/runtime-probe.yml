@@ -39,7 +39,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libarchive-dev meson ninja-build gdb
-          meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug
+          meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug -Dlog=strace -Dlog_handler=stderr
           ninja -C build
           sudo sysctl -w kernel.core_pattern="$GITHUB_WORKSPACE/artifacts/core.%p"
       - name: Exercise SSE instructions and masked futex waits
@@ -68,11 +68,14 @@ jobs:
           build/tools/fakefsify artifacts/runtime/codexpad-rootfs.tar.gz artifacts/guest
           timeout 30 build/ish -f artifacts/guest /bin/busybox echo ISH_BASELINE_OK
           timeout 60 build/ish -f artifacts/guest /usr/local/libexec/codexpad/codex-app-server --help
-          python3 scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest | tee artifacts/runtime-probe.log
+          python3 scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --stderr-log artifacts/guest-syscalls.log | tee artifacts/runtime-probe.log
       - name: Diagnose guest crash
         if: failure()
         shell: bash
         run: |
+          if test -f artifacts/guest-syscalls.log; then
+            grep -E 'clone\(|prctl\(|setsid\(|execve\(| = -22|panicked at|assertion' artifacts/guest-syscalls.log | tail -100 || true
+          fi
           if test -f artifacts/runtime-probe.log; then
             tar -xOf artifacts/runtime/codexpad-rootfs.tar.gz ./usr/local/libexec/codexpad/codex-app-server > artifacts/guest-app-server
             fault="$(sed -n 's/.*illegal instruction at \(0x[0-9a-f]*\):.*/\1/p' artifacts/runtime-probe.log | tail -1)"
@@ -99,3 +102,4 @@ jobs:
             artifacts/guest-backtrace.txt
             artifacts/instruction-disassembly.txt
             artifacts/guest-symbols.txt
+            artifacts/guest-syscalls.log
