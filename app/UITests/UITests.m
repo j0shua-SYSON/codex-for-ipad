@@ -65,7 +65,7 @@
     XCTAssertTrue([featureCenter waitForExistenceWithTimeout:5]);
     XCUIElement *featureSummary = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-summary"];
     XCTAssertTrue([featureSummary waitForExistenceWithTimeout:5]);
-    XCTAssertTrue([featureSummary.label containsString:@"125 compatible operations"]);
+    XCTAssertTrue([featureSummary.label containsString:@"162 compatible operations"]);
     XCTAssertTrue([featureSummary.label containsString:@"3 explicit platform exceptions"]);
     XCUIElement *featureDone = [self hittableButtonWithLabelContaining:@"Done"
                                                           inApplication:app];
@@ -193,7 +193,7 @@
         XCTAssertTrue([featureCenter waitForExistenceWithTimeout:5]);
         XCUIElement *featureSummary = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-summary"];
         XCTAssertTrue([featureSummary waitForExistenceWithTimeout:5]);
-        XCTAssertTrue([featureSummary.label containsString:@"125 compatible operations"]);
+        XCTAssertTrue([featureSummary.label containsString:@"162 compatible operations"]);
 
         XCUIElement *startFeature = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature.thread/start"];
         XCTAssertTrue([startFeature waitForExistenceWithTimeout:5]);

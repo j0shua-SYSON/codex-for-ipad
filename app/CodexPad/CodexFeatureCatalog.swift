@@ -48,7 +48,7 @@ struct CodexFeatureDefinition: Identifiable, Equatable, Sendable {
     var isDestructive: Bool {
         let destructiveFragments = [
             "/delete", "/remove", "/uninstall", "/terminate", "/kill",
-            "/revoke", "memory/reset", "account/logout", "config/batchWrite"
+            "/revoke", "/revert", "memory/reset", "account/logout", "config/batchWrite"
         ]
         return destructiveFragments.contains { method.contains($0) }
     }
@@ -83,7 +83,44 @@ enum CodexFeatureCatalog {
     thread/backgroundTerminals/clean
     thread/backgroundTerminals/list
     thread/backgroundTerminals/terminate
-    thread/rollback
+    thread/revert
+    thread/attachment/add
+    thread/attachment/list
+    thread/attachment/remove
+    thread/queue/add
+    thread/queue/delete
+    thread/queue/list
+    thread/queue/reorder
+    thread/queue/start
+    thread/queue/update
+    thread/section/move
+    thread/timeline/list
+    threadSection/create
+    threadSection/delete
+    threadSection/list
+    threadSection/update
+    project/create
+    project/delete
+    project/import
+    project/list
+    project/move
+    project/read
+    project/update
+    turn/settings/update
+    memory/status
+    plugin/reconcile
+    plugin/search
+    account/bedrock/discover
+    account/bedrock/setup
+    externalAgentConfig/import/recordHistory
+    mcpServer/event/stream/start
+    mcpServer/event/stream/stop
+    server/diagnostics
+    userVerification/cancel
+    userVerification/delete
+    userVerification/enroll
+    userVerification/status
+    userVerification/verify
     thread/list
     thread/search
     thread/searchOccurrences
@@ -281,6 +318,18 @@ enum CodexFeatureCatalog {
     windows/worldWritableWarning
     windowsSandbox/setupCompleted
     account/login/completed
+    autoApprovalReview/strictReviewRequired
+    mcpServer/event/stream/notification
+    modelProvider/authRecoveryCompleted
+    modelProvider/authRecoveryStarted
+    project/changed
+    thread/attachment/updated
+    thread/project/updated
+    thread/queue/changed
+    thread/realtime/item/completed
+    thread/realtime/item/started
+    thread/realtime/item/transcript/delta
+    thread/reverted
     """
     // CODEXPAD_SERVER_NOTIFICATIONS_END
 
@@ -362,7 +411,7 @@ enum CodexFeatureCatalog {
     }
 
     private static func category(for method: String) -> CodexFeatureCategory {
-        if method.hasPrefix("thread/") || method.hasPrefix("turn/") || method == "review/start" || method == "getConversationSummary" {
+        if method.hasPrefix("thread") || method.hasPrefix("project/") || method.hasPrefix("turn/") || method == "review/start" || method == "getConversationSummary" {
             return .threads
         }
         if method.hasPrefix("model") || method.hasPrefix("collaboration") || method.hasPrefix("experimentalFeature") || method.hasPrefix("permissionProfile") {

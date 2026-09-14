@@ -1,42 +1,3 @@
-diff --git a/codex-rs/code-mode/Cargo.toml b/codex-rs/code-mode/Cargo.toml
---- a/codex-rs/code-mode/Cargo.toml
-+++ b/codex-rs/code-mode/Cargo.toml
-@@ -12,10 +12,12 @@ sandbox = ["v8/v8_enable_sandbox"]
- [dependencies]
- codex-code-mode-protocol = { workspace = true }
- codex-protocol = { workspace = true }
--deno_core_icudata = { workspace = true }
- futures = { workspace = true }
- serde_json = { workspace = true }
- tokio = { workspace = true, features = ["io-util", "macros", "process", "rt", "sync", "time"] }
- tokio-util = { workspace = true, features = ["rt"] }
- tracing = { workspace = true }
-+
-+[target.'cfg(not(all(target_arch = "x86", target_os = "linux", target_env = "musl")))'.dependencies]
-+deno_core_icudata = { workspace = true }
- v8 = { workspace = true }
-diff --git a/codex-rs/code-mode/src/lib.rs b/codex-rs/code-mode/src/lib.rs
---- a/codex-rs/code-mode/src/lib.rs
-+++ b/codex-rs/code-mode/src/lib.rs
-@@ -1,6 +1,17 @@
-+#[cfg(not(all(target_arch = "x86", target_os = "linux", target_env = "musl")))]
- mod cell_actor;
- mod remote_session;
-+#[cfg(not(all(target_arch = "x86", target_os = "linux", target_env = "musl")))]
- mod runtime;
-+#[cfg_attr(
-+    all(target_arch = "x86", target_os = "linux", target_env = "musl"),
-+    path = "service_unavailable.rs"
-+)]
- mod service;
-+#[cfg(not(all(target_arch = "x86", target_os = "linux", target_env = "musl")))]
- mod session_runtime;
-+#[cfg_attr(
-+    all(target_arch = "x86", target_os = "linux", target_env = "musl"),
-+    path = "v8_init_unavailable.rs"
-+)]
- mod v8_init;
-
 diff --git a/codex-rs/core/Cargo.toml b/codex-rs/core/Cargo.toml
 index 23b5774f5..d17ec6172 100644
 --- a/codex-rs/core/Cargo.toml
@@ -55,19 +16,19 @@ index 23b5774f5..d17ec6172 100644
 diff --git a/codex-rs/linux-sandbox/src/landlock.rs b/codex-rs/linux-sandbox/src/landlock.rs
 --- a/codex-rs/linux-sandbox/src/landlock.rs
 +++ b/codex-rs/linux-sandbox/src/landlock.rs
-@@ -166,6 +166,18 @@ fn install_landlock_rules_on_current_thread(
+@@ -186,6 +186,18 @@ fn install_landlock_rules_on_current_thread(
  ///
  /// The filter is applied to the current thread so only the sandboxed child
  /// inherits it.
 +#[cfg(all(target_arch = "x86", target_os = "linux", target_env = "musl"))]
 +fn install_network_seccomp_filter_on_current_thread(
 +    _mode: NetworkSeccompMode,
-+) -> std::result::Result<(), SandboxErr> {
-+    // seccompiler has no 32-bit x86 backend, and iSH does not implement the
-+    // host seccomp/namespaces used by Codex's Linux sandbox. CodexPad starts
-+    // threads with danger-full-access inside the iPad-contained iSH guest, so
-+    // this code is retained only to make the upstream crate target-portable.
-+    Ok(())
++) -> Result<()> {
++    // Fail closed if a caller tries to enable unavailable isolation.
++    // Ordinary CodexPad turns explicitly use the app-contained full-access
++    // guest profile; do not silently claim that a Linux sandbox was installed.
++    Err(codex_protocol::error::CodexErr::UnsupportedOperation(
++        "Linux network sandboxing is unavailable in iSH".to_string()))
 +}
 +
 +#[cfg(not(all(target_arch = "x86", target_os = "linux", target_env = "musl")))]
@@ -78,11 +39,11 @@ diff --git a/codex-rs/Cargo.lock b/codex-rs/Cargo.lock
 index a44af07b5..47b061a55 100644
 --- a/codex-rs/Cargo.lock
 +++ b/codex-rs/Cargo.lock
-@@ -2619,6 +2619,7 @@ dependencies = [
+@@ -2968,6 +2968,7 @@ dependencies = [
   "assert_matches",
   "async-channel",
   "base64 0.22.1",
 + "blake3",
   "bm25",
   "chrono",
-  "clap",
+  "codex-agent-graph-store",

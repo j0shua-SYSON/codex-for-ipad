@@ -5,16 +5,9 @@ set -euo pipefail
 
 project_root="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
 compatibility_patch="$project_root/patches/codex-i686-musl-openssl.patch"
-compatibility_sources="$project_root/compat/codex-i686/code-mode"
 
 git apply --check "$compatibility_patch"
 git apply "$compatibility_patch"
-install -m 0644 \
-  "$compatibility_sources/service_unavailable.rs" \
-  code-mode/src/service_unavailable.rs
-install -m 0644 \
-  "$compatibility_sources/v8_init_unavailable.rs" \
-  code-mode/src/v8_init_unavailable.rs
 
 # OpenSSL 3 probes 64-bit lock-free atomics on i386 through
 # __atomic_is_lock_free, which Zig's musl runtime does not export. This
