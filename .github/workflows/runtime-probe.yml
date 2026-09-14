@@ -115,6 +115,17 @@ jobs:
               -ex 'p current->group->exit_code' \
               > artifacts/guest-backtrace.txt 2>&1 || true
           done
+      - name: Diagnose Darwin host trap
+        if: failure() && runner.os == 'macOS'
+        shell: bash
+        run: |
+          mkdir -p artifacts/darwin-diagnostics
+          find "$HOME/Library/Logs/DiagnosticReports" -maxdepth 1 -type f \
+            -name 'ish*' -exec cp '{}' artifacts/darwin-diagnostics/ \; || true
+          timeout 60 lldb --batch \
+            -o run -k 'thread backtrace all' -k 'register read' \
+            -- build/ish -f artifacts/guest /bin/sh -lc 'echo SHELL_OK' \
+            > artifacts/darwin-diagnostics/lldb.txt 2>&1 || true
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
@@ -128,3 +139,4 @@ jobs:
             artifacts/guest-syscalls.log
             artifacts/guest-websocket.log
             artifacts/websocket-probe.log
+            artifacts/darwin-diagnostics/

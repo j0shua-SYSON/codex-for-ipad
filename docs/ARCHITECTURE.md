@@ -27,6 +27,7 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 - iSH: `997642f3787cc63e65f7134b7bb0362c74bff8e0`
 - Codex candidate: `5b1d6560181680f95cde95c14ed042acc02248ed`
 - Rust: `1.95.0`
+- Guest Rust adapter: `patches/rust-1.95-ish-spawn.patch`, locked to compiler commit `59807616e1fa2540724bfbac14d7976d7e4a3860`; see [compatibility notes](../compat/README.md).
 - Guest target: `i686-unknown-linux-musl`
 
 `Dependencies/upstreams.json` is the single source of truth for these pins. A scheduled workflow discovers new Codex commits, reads their required Rust toolchain, verifies the native client's method and payload contract against that commit's generated JSON Schema, runs the complete i686-musl compatibility build, and opens an update pull request only after those gates pass. Runtime code never assumes a particular Codex version string; protocol capability negotiation and tolerant decoding handle additive v2 changes.
