@@ -30,12 +30,15 @@ jobs:
           sudo apt-get install -y libarchive-dev meson ninja-build gdb
           meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug
           ninja -C build
+          sudo sysctl -w kernel.core_pattern="$GITHUB_WORKSPACE/artifacts/core.%p"
       - name: Exercise the MOVMSKPS decoder with all sign masks
         shell: bash
         run: |
+          ulimit -c unlimited
           mkdir -p artifacts/instruction-test
           as --32 tests/codexpad/movmskps.S -o artifacts/instruction-test/movmskps.o
           ld -m elf_i386 artifacts/instruction-test/movmskps.o -o artifacts/instruction-test/movmskps
+          objdump -d artifacts/instruction-test/movmskps | tee artifacts/instruction-disassembly.txt
           build/ish -r artifacts/instruction-test /movmskps
       - name: Import and execute packaged guest
         shell: bash
@@ -68,3 +71,4 @@ jobs:
             artifacts/runtime-probe.log
             artifacts/runtime-manifest.json
             artifacts/guest-backtrace.txt
+            artifacts/instruction-disassembly.txt
