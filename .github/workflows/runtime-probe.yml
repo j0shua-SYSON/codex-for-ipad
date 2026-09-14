@@ -66,6 +66,7 @@ jobs:
           meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug -Dlog=strace -Dlog_handler=stderr -Db_sanitize="${{ matrix.sanitizer || 'none' }}"
           ninja -C build
           build/uname_test
+          timeout 30 build/memory_cow_test
       - name: Exercise SSE instructions and masked futex waits
         shell: bash
         run: |
