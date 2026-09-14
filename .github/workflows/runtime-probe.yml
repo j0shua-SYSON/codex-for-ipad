@@ -65,7 +65,7 @@ jobs:
         run: |
           ulimit -c unlimited
           mkdir -p artifacts/instruction-test
-          for test in movmskps vector-alias futex-bitset process-lifecycle thread-parent socketpair; do
+          for test in movmskps vector-alias futex-bitset process-lifecycle thread-parent socketpair poll-files epoll-oneshot; do
             if [[ "$RUNNER_OS" == "macOS" ]]; then
               clang -target i386-linux -c "tests/codexpad/$test.S" -o "artifacts/instruction-test/$test.o"
               ld.lld -m elf_i386 "artifacts/instruction-test/$test.o" -o "artifacts/instruction-test/$test"

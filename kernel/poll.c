@@ -153,50 +153,74 @@ dword_t sys_poll(addr_t fds, dword_t nfds, int_t timeout) {
     STRACE("...\n");
 
     struct fd *files[nfds];
+    bool added[nfds];
+    memset(added, 0, sizeof(added));
+    lock(&current->files->lock);
     for (unsigned i = 0; i < nfds; i++) {
-        files[i] = f_get(polls[i].fd);
+        files[i] = fdtable_get(current->files, polls[i].fd);
         if (files[i] != NULL)
-            // FIXME it might have been closed by now by another thread
             fd_retain(files[i]);
-        // clear revents, which is reused to mark whether a pollfd has been added or not
         polls[i].revents = 0;
     }
+    unlock(&current->files->lock);
+    struct poll_context context = {polls, files, nfds};
+    bool ready = false;
+    int res = 0;
 
     // convert polls array into poll_add_fd calls
     // FIXME this is quadratic
     for (unsigned i = 0; i < nfds; i++) {
-        if (polls[i].fd < 0 || polls[i].revents)
+        if (polls[i].fd < 0 || added[i])
             continue;
 
         // if the same fd is listed more than once, merge the events bits together
         int events = polls[i].events;
-        polls[i].revents = 1;
-        if (files[i] == NULL)
+        added[i] = true;
+        if (files[i] == NULL) {
+            polls[i].revents = POLL_NVAL;
+            ready = true;
             continue;
+        }
         for (unsigned j = 0; j < nfds; j++) {
-            if (polls[j].revents)
+            if (added[j])
                 continue;
             if (files[i] == files[j]) {
                 events |= polls[j].events;
-                polls[j].revents = 1;
+                added[j] = true;
             }
         }
 
-        poll_add_fd(poll, files[i], events | POLL_ALWAYS_LISTENING, (union poll_fd_info) (void *) files[i]);
+        // Host epoll rejects regular files (EPERM), whereas Linux poll must
+        // report them ready, including at EOF. Keep epoll_ctl semantics separate.
+        if (S_ISREG(files[i]->type) || S_ISDIR(files[i]->type)) {
+            poll_event_callback(&context, POLL_READ | POLL_WRITE,
+                    (union poll_fd_info) (void *) files[i]);
+            ready |= !!(events & (POLL_READ | POLL_WRITE));
+            continue;
+        }
+        res = poll_add_fd(poll, files[i], events | POLL_ALWAYS_LISTENING,
+                (union poll_fd_info) (void *) files[i]);
+        if (res < 0)
+            goto out;
     }
 
-    for (unsigned i = 0; i < nfds; i++) {
-        polls[i].revents = 0;
-        if (polls[i].fd >= 0 && files[i] == NULL)
-            polls[i].revents = POLL_NVAL;
-    }
-    struct poll_context context = {polls, files, nfds};
+    if (ready)
+        timeout = 0;
     struct timespec timeout_ts;
     if (timeout >= 0) {
         timeout_ts.tv_sec = timeout / 1000;
         timeout_ts.tv_nsec = (timeout % 1000) * 1000000;
     }
-    int res = poll_wait(poll, poll_event_callback, &context, timeout < 0 ? NULL : &timeout_ts);
+    res = poll_wait(poll, poll_event_callback, &context, timeout < 0 ? NULL : &timeout_ts);
+    if (ready && res == _EINTR)
+        res = 0;
+    if (res >= 0) {
+        // poll counts array entries, not unique underlying descriptors.
+        res = 0;
+        for (unsigned i = 0; i < nfds; i++)
+            res += polls[i].revents != 0;
+    }
+out:
     poll_destroy(poll);
     for (unsigned i = 0; i < nfds; i++) {
         if (files[i] != NULL)
