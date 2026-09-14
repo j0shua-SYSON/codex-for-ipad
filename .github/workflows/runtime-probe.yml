@@ -47,7 +47,7 @@ jobs:
         run: |
           ulimit -c unlimited
           mkdir -p artifacts/instruction-test
-          for test in movmskps futex-bitset; do
+          for test in movmskps vector-alias futex-bitset; do
             as --32 "tests/codexpad/$test.S" -o "artifacts/instruction-test/$test.o"
             ld -m elf_i386 "artifacts/instruction-test/$test.o" -o "artifacts/instruction-test/$test"
             objdump -d "artifacts/instruction-test/$test" >> artifacts/instruction-disassembly.txt
