@@ -47,7 +47,9 @@ def main():
         stdin=console_slave if console_slave is not None else subprocess.PIPE,
         stdout=console_slave if console_slave is not None else subprocess.PIPE,
         stderr=diagnostics or subprocess.STDOUT,
-        text=True, bufsize=1, start_new_session=True,
+        # LLDB merges raw syscall bytes into stdout; JSON stdio stays strict.
+        text=True, errors="replace" if args.debugger_lldb else "strict",
+        bufsize=1, start_new_session=True,
     )
     if console_slave is not None:
         os.close(console_slave)
