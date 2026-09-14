@@ -26,6 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         runner: [ubuntu-24.04, macos-26]
+        sanitizer: [none]
         include:
           - runner: macos-26
             sanitizer: address
@@ -143,7 +144,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: Real-iSH-runtime-evidence-${{ runner.os }}${{ matrix.sanitizer && '-ASan' || '' }}
+          name: Real-iSH-runtime-evidence-${{ runner.os }}${{ matrix.sanitizer == 'address' && '-ASan' || '' }}
           path: |
             artifacts/runtime-probe.log
             artifacts/runtime-manifest.json
