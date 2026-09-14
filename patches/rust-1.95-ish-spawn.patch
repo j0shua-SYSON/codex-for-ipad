@@ -1,0 +1,44 @@
+diff --git a/library/std/src/sys/process/unix/unix.rs b/library/std/src/sys/process/unix/unix.rs
+--- a/library/std/src/sys/process/unix/unix.rs
++++ b/library/std/src/sys/process/unix/unix.rs
+@@ -70,7 +70,16 @@ impl Command {
+             return Ok((ret, ours));
+         }
+ 
+-        #[cfg(target_os = "linux")]
++        // iSH has pipes, but Darwin has no AF_UNIX SOCK_SEQPACKET and iSH
++        // has no pidfd implementation. Keep the atomic CLOEXEC error pipe
++        // protocol used by the other Unix targets; never pretend a stream
++        // socket preserves packet boundaries or accepts pidfd transfer.
++        #[cfg(all(target_arch = "x86", target_env = "musl"))]
++        if self.get_create_pidfd() {
++            return Err(io::const_error!(ErrorKind::Unsupported, "pidfd is unavailable in iSH"));
++        }
++
++        #[cfg(all(target_os = "linux", not(all(target_arch = "x86", target_env = "musl"))))]
+         let (input, output) = sys::net::Socket::new_pair(libc::AF_UNIX, libc::SOCK_SEQPACKET)?;
+-        #[cfg(not(target_os = "linux"))]
++        #[cfg(any(not(target_os = "linux"), all(target_arch = "x86", target_env = "musl")))]
+         let (input, output) = sys::pipe::pipe()?;
+@@ -90,7 +99,7 @@ impl Command {
+             crate::panic::always_abort();
+             mem::forget(env_lock); // avoid non-async-signal-safe unlocking
+             drop(input);
+-            #[cfg(target_os = "linux")]
++            #[cfg(all(target_os = "linux", not(all(target_arch = "x86", target_env = "musl"))))]
+             if self.get_create_pidfd() {
+                 self.send_pidfd(&output);
+             }
+@@ -116,10 +125,10 @@ impl Command {
+         drop(env_lock);
+         drop(output);
+ 
+-        #[cfg(target_os = "linux")]
++        #[cfg(all(target_os = "linux", not(all(target_arch = "x86", target_env = "musl"))))]
+         let pidfd = if self.get_create_pidfd() { self.recv_pidfd(&input) } else { -1 };
+ 
+-        #[cfg(not(target_os = "linux"))]
++        #[cfg(any(not(target_os = "linux"), all(target_arch = "x86", target_env = "musl")))]
+         let pidfd = -1;
+ 
+         // Safety: We obtained the pidfd (on Linux) using SOCK_SEQPACKET, so it's valid.
