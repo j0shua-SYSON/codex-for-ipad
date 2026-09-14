@@ -35,6 +35,29 @@ next_mask:
     movmskps %xmm7, %esi
     cmpl $10, %esi
     jne failed
+    # CVTDQ2PD must snapshot an aliased source before writing either double.
+    movups integers, %xmm2
+    cvtdq2pd %xmm2, %xmm2
+    movups %xmm2, vector
+    cmpl $0, vector
+    jne failed
+    cmpl $0xc1e00000, vector+4
+    jne failed
+    cmpl $0xffc00000, vector+8
+    jne failed
+    cmpl $0x41dfffff, vector+12
+    jne failed
+    # Memory source reads only two signed 32-bit integers.
+    cvtdq2pd small_integers, %xmm7
+    movups %xmm7, vector
+    cmpl $0, vector
+    jne failed
+    cmpl $0xbff00000, vector+4
+    jne failed
+    cmpl $0, vector+8
+    jne failed
+    cmpl $0x3ff00000, vector+12
+    jne failed
     xorl %ebx, %ebx
     jmp finish
 failed:
@@ -46,4 +69,6 @@ finish:
 .balign 16
 vector: .long 0, 0, 0, 0
 nan_vector: .long 0, 0x80000000, 0x7fc00000, 0xffc00000
+integers: .long 0x80000000, 0x7fffffff, 0xdeadbeef, 0xdeadbeef
+small_integers: .long -1, 1
 .section .note.GNU-stack,"",@progbits
