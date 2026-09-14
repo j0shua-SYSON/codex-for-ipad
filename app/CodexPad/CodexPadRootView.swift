@@ -264,6 +264,7 @@ struct CodexPadRootView: View {
             .buttonStyle(.plain)
             .background(.bar)
         }
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("codexpad.sidebar")
         .background(CodexPalette.canvas)
         .searchable(text: $searchText, placement: .sidebar, prompt: "Search threads")
