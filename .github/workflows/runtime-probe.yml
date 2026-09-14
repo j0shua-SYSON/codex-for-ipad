@@ -22,7 +22,11 @@ permissions:
   actions: read
 jobs:
   probe:
-    runs-on: ubuntu-24.04
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-24.04, macos-26]
+    runs-on: ${{ matrix.runner }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
@@ -35,22 +39,41 @@ jobs:
           path: artifacts/runtime
           run-id: ${{ inputs.artifact_run_id }}
           github-token: ${{ github.token }}
-      - name: Build the actual iSH emulator
+      - name: Install Linux probe dependencies
+        if: runner.os == 'Linux'
         run: |
           sudo apt-get update
           sudo apt-get install -y libarchive-dev meson ninja-build gdb python3-websocket
+          echo "PROBE_PYTHON=/usr/bin/python3" >> "$GITHUB_ENV"
+          sudo sysctl -w kernel.core_pattern="$GITHUB_WORKSPACE/artifacts/core.%p"
+      - name: Install Darwin probe dependencies
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm lld ninja libarchive meson coreutils
+          python3 -m venv artifacts/probe-venv
+          artifacts/probe-venv/bin/pip install websocket-client==1.9.0
+          echo "PROBE_PYTHON=$GITHUB_WORKSPACE/artifacts/probe-venv/bin/python3" >> "$GITHUB_ENV"
+          echo "$(brew --prefix coreutils)/libexec/gnubin" >> "$GITHUB_PATH"
+          echo "$(brew --prefix llvm)/bin" >> "$GITHUB_PATH"
+      - name: Build the actual iSH emulator
+        run: |
           meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug -Dlog=strace -Dlog_handler=stderr
           ninja -C build
-          sudo sysctl -w kernel.core_pattern="$GITHUB_WORKSPACE/artifacts/core.%p"
       - name: Exercise SSE instructions and masked futex waits
         shell: bash
         run: |
           ulimit -c unlimited
           mkdir -p artifacts/instruction-test
-          for test in movmskps vector-alias futex-bitset process-lifecycle; do
-            as --32 "tests/codexpad/$test.S" -o "artifacts/instruction-test/$test.o"
-            ld -m elf_i386 "artifacts/instruction-test/$test.o" -o "artifacts/instruction-test/$test"
-            objdump -d "artifacts/instruction-test/$test" >> artifacts/instruction-disassembly.txt
+          for test in movmskps vector-alias futex-bitset process-lifecycle socketpair; do
+            if [[ "$RUNNER_OS" == "macOS" ]]; then
+              clang -target i386-linux -c "tests/codexpad/$test.S" -o "artifacts/instruction-test/$test.o"
+              ld.lld -m elf_i386 "artifacts/instruction-test/$test.o" -o "artifacts/instruction-test/$test"
+              llvm-objdump -d "artifacts/instruction-test/$test" >> artifacts/instruction-disassembly.txt
+            else
+              as --32 "tests/codexpad/$test.S" -o "artifacts/instruction-test/$test.o"
+              ld -m elf_i386 "artifacts/instruction-test/$test.o" -o "artifacts/instruction-test/$test"
+              objdump -d "artifacts/instruction-test/$test" >> artifacts/instruction-disassembly.txt
+            fi
             timeout 15 build/ish -r artifacts/instruction-test "/$test"
             echo "PASS: real iSH $test regression"
           done
@@ -61,17 +84,16 @@ jobs:
         run: |
           set -euo pipefail
           ulimit -c unlimited
-          sudo sysctl -w kernel.core_pattern="$GITHUB_WORKSPACE/artifacts/core.%p"
           tar -xOf artifacts/runtime/codexpad-rootfs.tar.gz ./usr/local/share/codexpad/runtime.json | tee artifacts/runtime-manifest.json
           revision="${EXPECTED_REVISION:-$(jq -r '.codex.revision' Dependencies/upstreams.json)}"
           jq -e --arg revision "$revision" '.codexRevision == $revision' artifacts/runtime-manifest.json
           build/tools/fakefsify artifacts/runtime/codexpad-rootfs.tar.gz artifacts/guest
           timeout 30 build/ish -f artifacts/guest /bin/busybox echo ISH_BASELINE_OK
           timeout 60 build/ish -f artifacts/guest /usr/local/libexec/codexpad/codex-app-server --help
-          python3 scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --stderr-log artifacts/guest-syscalls.log | tee artifacts/runtime-probe.log
-          /usr/bin/python3 scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --transport websocket --stderr-log artifacts/guest-websocket.log | tee artifacts/websocket-probe.log
+          "$PROBE_PYTHON" scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --stderr-log artifacts/guest-syscalls.log | tee artifacts/runtime-probe.log
+          "$PROBE_PYTHON" scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --transport websocket --stderr-log artifacts/guest-websocket.log | tee artifacts/websocket-probe.log
       - name: Diagnose guest crash
-        if: failure()
+        if: failure() && runner.os == 'Linux'
         shell: bash
         run: |
           if test -f artifacts/guest-syscalls.log; then
@@ -96,7 +118,7 @@ jobs:
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
-          name: Real-iSH-runtime-evidence
+          name: Real-iSH-runtime-evidence-${{ runner.os }}
           path: |
             artifacts/runtime-probe.log
             artifacts/runtime-manifest.json

@@ -19,9 +19,12 @@ const struct fd_ops socket_fdops;
 static lock_t peer_lock = LOCK_INITIALIZER;
 
 static fd_t sock_fd_create(int sock_fd, int domain, int type, int protocol) {
+    // Consume the host descriptor on every path, including f_install failure.
     struct fd *fd = adhoc_fd_create(&socket_fdops);
-    if (fd == NULL)
+    if (fd == NULL) {
+        close(sock_fd);
         return _ENOMEM;
+    }
     fd->stat.mode = S_IFSOCK | 0666;
     fd->real_fd = sock_fd;
     fd->socket.domain = domain;
@@ -60,10 +63,7 @@ int_t sys_socket(dword_t domain, dword_t type, dword_t protocol) {
     }
 #endif
 
-    fd_t f = sock_fd_create(sock, domain, type, protocol);
-    if (f < 0)
-        close(sock);
-    return f;
+    return sock_fd_create(sock, domain, type, protocol);
 }
 
 static void inode_release_if_exist(struct inode_data *inode) {
@@ -431,7 +431,7 @@ int_t sys_accept(fd_t sock_fd, addr_t sockaddr_addr, addr_t sockaddr_len_addr) {
     fd_t client_f = sock_fd_create(client,
             sock->socket.domain, sock->socket.type, sock->socket.protocol);
     if (client_f < 0)
-        close(client);
+        return client_f;
 
     if (sock->socket.domain == AF_LOCAL_) {
         lock(&peer_lock);
@@ -530,22 +530,26 @@ int_t sys_socketpair(dword_t domain, dword_t type, dword_t protocol, addr_t sock
         return _EINVAL;
 
     int sockets[2];
-    int err = socketpair(domain, type, protocol, sockets);
+    // Linux family/type/flag values are not Darwin's native constants.
+    // f_install applies NONBLOCK/CLOEXEC to the guest descriptors separately.
+    int err = socketpair(real_domain, real_type, protocol, sockets);
     if (err < 0)
         return errno_map();
 
-    lock(&peer_lock);
     int fake_sockets[2];
     err = fake_sockets[0] = sock_fd_create(sockets[0], domain, type, protocol);
+    sockets[0] = -1; // consumed, even when installation failed
     if (fake_sockets[0] < 0) {
-        unlock(&peer_lock);
         goto close_sockets;
     }
     err = fake_sockets[1] = sock_fd_create(sockets[1], domain, type, protocol);
+    sockets[1] = -1;
     if (fake_sockets[1] < 0) {
-        unlock(&peer_lock);
         goto close_fake_0;
     }
+    // Installing an fd can call sock_close on failure, which takes peer_lock.
+    // Do not hold it until both installations have succeeded.
+    lock(&peer_lock);
     struct fd *sock1 = f_get(fake_sockets[0]);
     struct fd *sock2 = f_get(fake_sockets[1]);
     sock1->socket.unix_peer = sock2;
@@ -564,8 +568,8 @@ close_fake_1:
 close_fake_0:
     sys_close(fake_sockets[0]);
 close_sockets:
-    close(sockets[0]);
-    close(sockets[1]);
+    if (sockets[0] != -1) close(sockets[0]);
+    if (sockets[1] != -1) close(sockets[1]);
     return err;
 }
 
