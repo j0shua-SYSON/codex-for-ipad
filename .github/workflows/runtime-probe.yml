@@ -104,6 +104,17 @@ jobs:
           "$PROBE_PYTHON" scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --stderr-log artifacts/guest-syscalls.log | tee artifacts/runtime-probe.log
           "$PROBE_PYTHON" scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --transport websocket --stderr-log artifacts/guest-websocket.log | tee artifacts/websocket-probe.log
           "$PROBE_PYTHON" scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --transport websocket --startup init --stderr-log artifacts/guest-boot.log | tee artifacts/boot-probe.log
+      - name: Publish primary evidence before debugger reruns
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: Real-iSH-primary-${{ runner.os }}${{ matrix.sanitizer == 'address' && '-ASan' || '' }}
+          path: |
+            artifacts/*probe.log
+            artifacts/guest-*.log
+            artifacts/runtime-manifest.json
+            artifacts/instruction-disassembly.txt
+            artifacts/poll-files-redirected.log
       - name: Diagnose guest crash
         if: failure() && runner.os == 'Linux'
         shell: bash

@@ -191,6 +191,10 @@ def main():
                 if any(b"panicked at" in line for line in log):
                     raise RuntimeError("A guest background thread panicked; see the diagnostic log")
         print(f"PASS: real iSH {args.transport} ({args.startup} startup) command execution, Git and ripgrep. Inference/authentication remain untested.", flush=True)
+    except Exception as error:
+        # Retain the reason in the tee'd evidence, not only the hosted job log.
+        print(f"FAIL: {type(error).__name__}: {error}", flush=True)
+        raise
     finally:
         stopping.set()
         if connection is not None:
