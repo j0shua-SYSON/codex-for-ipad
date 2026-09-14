@@ -455,9 +455,10 @@ void vec_unpackl_qdq128(NO_CPU, const union xmm_reg *src, union xmm_reg *dst) {
     dst->qw[1] = src->qw[0];
 }
 void vec_unpackl_ps128(NO_CPU, const union xmm_reg *src, union xmm_reg *dst) {
-    dst->u32[2] = dst->u32[1];
-    dst->u32[1] = src->u32[0];
-    dst->u32[3] = src->u32[1];
+    union xmm_reg source = *src, target = *dst;
+    dst->u32[2] = target.u32[1];
+    dst->u32[1] = source.u32[0];
+    dst->u32[3] = source.u32[1];
 }
 void vec_unpackl_pd128(NO_CPU, const union xmm_reg *src, union xmm_reg *dst) {
     dst->f64[1] = src->f64[0];
@@ -541,14 +542,16 @@ void vec_shuffle_d128(NO_CPU, const union xmm_reg *src, union xmm_reg *dst, uint
         dst->u32[i] = src_copy.u32[(encoding >> (i*2)) % 4];
 }
 void vec_shuffle_ps128(NO_CPU, const union xmm_reg *src, union xmm_reg *dst, uint8_t encoding) {
-    dst->u32[0] = dst->u32[(encoding >> 0) & 3];
-    dst->u32[1] = dst->u32[(encoding >> 2) & 3];
-    dst->u32[2] = src->u32[(encoding >> 4) & 3];
-    dst->u32[3] = src->u32[(encoding >> 6) & 3];
+    union xmm_reg source = *src, target = *dst;
+    dst->u32[0] = target.u32[(encoding >> 0) & 3];
+    dst->u32[1] = target.u32[(encoding >> 2) & 3];
+    dst->u32[2] = source.u32[(encoding >> 4) & 3];
+    dst->u32[3] = source.u32[(encoding >> 6) & 3];
 }
 void vec_shuffle_pd128(NO_CPU, const union xmm_reg *src, union xmm_reg *dst, uint8_t encoding) {
-    dst->qw[0] = dst->qw[(encoding >> 0) & 1];
-    dst->qw[1] = src->qw[(encoding >> 1) & 1];
+    union xmm_reg source = *src, target = *dst;
+    dst->qw[0] = target.qw[(encoding >> 0) & 1];
+    dst->qw[1] = source.qw[(encoding >> 1) & 1];
 }
 
 void vec_movmask_b128(NO_CPU, const union xmm_reg *src, uint32_t *dst) {
