@@ -677,7 +677,7 @@ final class CodexWorkspaceModel: ObservableObject {
     }
 
     @discardableResult
-    func createThread() async -> String? {
+    func createThread(preservingDraft: Bool = false) async -> String? {
         guard !isCreatingThread else { return nil }
         isCreatingThread = true
         defer { isCreatingThread = false }
@@ -711,7 +711,15 @@ final class CodexWorkspaceModel: ObservableObject {
                 throw CodexRPCError(code: nil, message: "thread/start returned no thread")
             }
             upsertThread(record, atFront: true)
-            if selectionGeneration == selectionAtStart { selectedThreadID = record.id }
+            if selectionGeneration == selectionAtStart {
+                let pendingDraft = composerText
+                let sourceDraftKey = selectedThreadID ?? ""
+                selectedThreadID = record.id
+                if preservingDraft {
+                    composerText = pendingDraft
+                    drafts[sourceDraftKey] = nil
+                }
+            }
             timelineByThread[record.id] = []
             requestComposerFocus()
             return record.id
@@ -830,13 +838,24 @@ final class CodexWorkspaceModel: ObservableObject {
     func sendComposer() async {
         let text = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard enginePhase.isReady, !text.isEmpty, !isTurnRunning else { return }
-        var threadID = selectedThreadID
+        // A first send can suspend while its thread is created. Capture the
+        // complete intent before that await; another thread's controls and
+        // newly typed text must not alter or disappear into this request.
+        let sourceThreadID = selectedThreadID
+        let modelAtSend = selectedModel?.model
+        let effortAtSend = selectedReasoningEffort
+        let tierAtSend = selectedServiceTier
+        let collaborationAtSend = collaborationModePayload
+        composerText = ""
+        var threadID = sourceThreadID
         if threadID == nil {
-            threadID = await createThread()
+            threadID = await createThread(preservingDraft: true)
         }
-        guard let threadID else { return }
+        guard let threadID else {
+            restoreDraft(text, in: sourceThreadID)
+            return
+        }
 
-        if selectedThreadID == threadID { composerText = "" }
         requestComposerFocus()
         let clientID = UUID().uuidString
         upsertTimeline(
@@ -868,15 +887,15 @@ final class CodexWorkspaceModel: ObservableObject {
                     ])
                 ])
             ]
-            if let selectedModel {
-                params["model"] = .string(selectedModel.model)
+            if let modelAtSend {
+                params["model"] = .string(modelAtSend)
             }
-            params["serviceTier"] = selectedServiceTier.map(JSONValue.string) ?? .null
-            if let selectedReasoningEffort {
-                params["effort"] = .string(selectedReasoningEffort)
+            params["serviceTier"] = tierAtSend.map(JSONValue.string) ?? .null
+            if let effortAtSend {
+                params["effort"] = .string(effortAtSend)
             }
-            if let collaborationModePayload {
-                params["collaborationMode"] = collaborationModePayload
+            if let collaborationAtSend {
+                params["collaborationMode"] = collaborationAtSend
             }
             let response = try await rpc.request(
                 method: "turn/start",
@@ -888,11 +907,18 @@ final class CodexWorkspaceModel: ObservableObject {
             }
         } catch {
             timelineByThread[threadID]?.removeAll { $0.id == clientID }
-            if selectedThreadID == threadID, composerText.isEmpty { composerText = text }
-            else if drafts[threadID, default: ""].isEmpty { drafts[threadID] = text }
+            restoreDraft(text, in: threadID)
             setThreadActivity(.failed, id: threadID)
             report(error, context: "Could not start the turn")
         }
+    }
+
+    private func restoreDraft(_ text: String, in threadID: String?) {
+        let key = threadID ?? ""
+        let pending = selectedThreadID == threadID ? composerText : drafts[key, default: ""]
+        let recovered = pending.isEmpty || pending == text ? text : text + "\n\n" + pending
+        if selectedThreadID == threadID { composerText = recovered }
+        drafts[key] = recovered
     }
 
     func interruptTurn() async {
