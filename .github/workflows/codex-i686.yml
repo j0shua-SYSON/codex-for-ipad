@@ -289,6 +289,16 @@ jobs:
           test -n "$app_path"
           test -f "$app_path/root.tar.gz"
           cmp "$app_path/root.tar.gz" artifacts/runtime/codexpad-rootfs.tar.gz
+          # Keep current notices with the app even when an older runtime
+          # artifact is deliberately reused after fresh compatibility checks.
+          cp THIRD_PARTY_NOTICES.md "$app_path/THIRD_PARTY_NOTICES.md"
+          jq -n --arg appRevision "$GITHUB_SHA" \
+            --arg runtimeRun '${{ inputs.runtime_artifact_run_id || github.run_id }}' \
+            --arg runtimeSHA256 "$(shasum -a 256 "$app_path/root.tar.gz" | cut -d ' ' -f1)" \
+            --slurpfile upstreams Dependencies/upstreams.json \
+            '{schemaVersion: 1, appRevision: $appRevision, runtimeArtifactRun: $runtimeRun,
+              runtimeSHA256: $runtimeSHA256, upstreams: $upstreams[0]}' \
+            > "$app_path/CodexPadBuild.json"
           ditto -c -k --sequesterRsrc --keepParent "$app_path" artifacts/CodexPad-unsigned.app.zip
 
       - name: Upload unsigned iPad app
