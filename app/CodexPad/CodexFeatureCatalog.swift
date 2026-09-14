@@ -404,6 +404,77 @@ enum CodexFeatureCatalog {
         features.first { $0.method == method }
     }
 
+    private static let requestContract: JSONValue? = {
+        guard let url = Bundle.main.url(forResource: "CodexClientRequest.schema", withExtension: "json"),
+              let data = try? Data(contentsOf: url) else { return nil }
+        return try? JSONDecoder().decode(JSONValue.self, from: data)
+    }()
+
+    static func parameterSchema(for method: String) -> JSONValue? {
+        guard let entry = requestContract?["oneOf"]?.arrayValue?.first(where: {
+            $0["properties"]?["method"]?["enum"]?.arrayValue?.contains(.string(method)) == true
+        }) else { return nil }
+        let params = entry["properties"]?["params"] ?? .object(["type": .string("null")])
+        return dereference(params)
+    }
+
+    private static func dereference(_ value: JSONValue) -> JSONValue {
+        guard let reference = value["$ref"]?.stringValue,
+              let key = reference.split(separator: "/").last else { return value }
+        return requestContract?["definitions"]?[String(key)] ?? value
+    }
+
+    static func parameterReference(for method: String) -> String? {
+        guard var schema = parameterSchema(for: method)?.objectValue else { return nil }
+        var definitions: [String: JSONValue] = [:]
+        func collect(_ value: JSONValue) {
+            if let reference = value["$ref"]?.stringValue,
+               let key = reference.split(separator: "/").last.map(String.init),
+               definitions[key] == nil,
+               let definition = requestContract?["definitions"]?[key] {
+                definitions[key] = definition
+                collect(definition)
+            }
+            value.objectValue?.values.forEach(collect)
+            value.arrayValue?.forEach(collect)
+        }
+        collect(.object(schema))
+        if !definitions.isEmpty { schema["definitions"] = .object(definitions) }
+        return JSONValue.object(schema).prettyPrinted
+    }
+
+    /// Required-field scaffolding is not a claim that an operation is safe to
+    /// run unchanged. Placeholder IDs/paths remain visibly user-editable.
+    static func parameterTemplate(for method: String) -> JSONValue? {
+        guard let schema = parameterSchema(for: method) else { return nil }
+        func sample(_ raw: JSONValue, depth: Int = 0) -> JSONValue {
+            guard depth < 8 else { return .null }
+            let value = dereference(raw)
+            if let preset = value["default"] { return preset }
+            if let choice = value["enum"]?.arrayValue?.first { return choice }
+            if let choices = value["oneOf"]?.arrayValue ?? value["anyOf"]?.arrayValue,
+               let first = choices.first { return sample(first, depth: depth + 1) }
+            switch value["type"]?.stringValue {
+            case "null": return .null
+            case "boolean": return .bool(false)
+            case "integer", "number": return .integer(0)
+            case "array": return .array([])
+            case "object":
+                let required = value["required"]?.arrayValue?.compactMap(\.stringValue) ?? []
+                return .object(Dictionary(uniqueKeysWithValues: required.map { key in
+                    (key, sample(value["properties"]?[key] ?? .null, depth: depth + 1))
+                }))
+            default: return .string("<required-value>")
+            }
+        }
+        return sample(schema)
+    }
+
+    static func missingRequiredParameters(method: String, params: JSONValue?) -> [String] {
+        let required = parameterSchema(for: method)?["required"]?.arrayValue?.compactMap(\.stringValue) ?? []
+        return required.filter { params?[$0] == nil }
+    }
+
     private static func lines(_ value: String) -> [String] {
         value.split(whereSeparator: \.isNewline).map {
             $0.trimmingCharacters(in: .whitespaces)

@@ -20,6 +20,7 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p artifacts
+          cp app/CodexPad/CodexClientRequest.schema.json artifacts/
           swiftc -parse-as-library \
             app/CodexPad/CodexJSON.swift app/CodexPad/CodexModels.swift \
             app/CodexPad/CodexRPC.swift app/CodexPad/CodexFeatureCatalog.swift \

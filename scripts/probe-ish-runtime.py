@@ -17,7 +17,7 @@ def main():
     args = parser.parse_args()
     process = subprocess.Popen(
         [args.ish, "-f", args.root, "-d", "/root/workspace", "/bin/sh", "-lc",
-         "echo CODEXPAD_SHELL_READY >&2; exec /usr/local/libexec/codexpad/codex-app-server --listen stdio://"],
+         "echo CODEXPAD_SHELL_READY >&2; /usr/local/libexec/codexpad/codex-app-server --listen stdio://; result=$?; echo CODEXPAD_SERVER_EXIT=$result >&2; exit $result"],
         stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
         text=True, bufsize=1, start_new_session=True,
     )
