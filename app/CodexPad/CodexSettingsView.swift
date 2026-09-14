@@ -39,6 +39,7 @@ struct CodexSettingsView: View {
                     Text("Source and third-party notices are included with every release.")
                 }
             }
+            .accessibilityIdentifier("codexpad.settings-form")
             .safeAreaInset(edge: .bottom, spacing: 0) {
                 Color.clear
                     .frame(height: 24)

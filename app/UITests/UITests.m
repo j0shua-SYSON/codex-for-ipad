@@ -13,6 +13,8 @@
                                 inApplication:(XCUIApplication *)app;
 - (XCUIElement *)hittableButtonWithLabelContaining:(NSString *)fragment
                                       inApplication:(XCUIApplication *)app;
+- (void)scrollElement:(XCUIElement *)element intoView:(XCUIElement *)scroller
+       belowNavigationBar:(XCUIElement *)navigationBar;
 @end
 
 @implementation UITests
@@ -183,20 +185,16 @@
         [self waitForExpectationsWithTimeout:5 handler:nil];
 
         XCUIElement *folderButton = app.buttons[@"Choose folder in Files"];
-        XCUIElement *settingsScroller = app.collectionViews.firstMatch.exists
-            ? app.collectionViews.firstMatch
-            : app.tables.firstMatch;
-        for (NSUInteger attempt = 0; attempt < 5 && !folderButton.isHittable; attempt++) {
-            [settingsScroller swipeUp];
-        }
+        XCUIElement *settingsScroller = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.settings-form"];
+        [self scrollElement:folderButton intoView:settingsScroller
+             belowNavigationBar:app.navigationBars[@"Settings"]];
         XCTAssertTrue(folderButton.isHittable);
         [folderButton tap];
         XCTAssertTrue([app.buttons[@"Unlink Files folder"] waitForExistenceWithTimeout:5]);
 
         XCUIElement *openFeatureCenter = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.open-feature-center"];
-        for (NSUInteger attempt = 0; attempt < 5 && !openFeatureCenter.isHittable; attempt++) {
-            [settingsScroller swipeUp];
-        }
+        [self scrollElement:openFeatureCenter intoView:settingsScroller
+             belowNavigationBar:app.navigationBars[@"Settings"]];
         XCTAssertTrue(openFeatureCenter.isHittable);
         [openFeatureCenter tap];
         XCUIElement *featureCenter = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.feature-center"];
@@ -270,6 +268,28 @@
     screenshot.name = expandedWorkspace ? @"CodexPad standard workspace" : @"CodexPad accessibility workspace";
     screenshot.lifetime = XCTAttachmentLifetimeKeepAlways;
     [self addAttachment:screenshot];
+}
+
+- (void)scrollElement:(XCUIElement *)element intoView:(XCUIElement *)scroller
+       belowNavigationBar:(XCUIElement *)navigationBar {
+    XCTAssertTrue(scroller.exists);
+    for (NSUInteger attempt = 0; attempt < 12; attempt++) {
+        CGRect viewport = CGRectInset(scroller.frame, 12, 16);
+        CGFloat bottom = CGRectGetMaxY(viewport);
+        viewport.origin.y = MAX(CGRectGetMinY(viewport), CGRectGetMaxY(navigationBar.frame) + 8);
+        viewport.size.height = MAX(0, bottom - viewport.origin.y);
+        CGPoint center = CGPointMake(CGRectGetMidX(element.frame), CGRectGetMidY(element.frame));
+        // SwiftUI Form can report an offscreen row as hittable even above
+        // the sheet's top edge. Require a genuinely visible target, and
+        // reverse direction if a swipe passed it instead of tapping behind it.
+        if (element.isHittable && CGRectContainsPoint(viewport, center)) return;
+        if (element.exists && center.y < CGRectGetMinY(viewport)) {
+            [scroller swipeDownWithVelocity:XCUIGestureVelocitySlow];
+        } else {
+            [scroller swipeUpWithVelocity:XCUIGestureVelocitySlow];
+        }
+    }
+    XCTFail(@"Could not scroll %@ into the visible sheet", element);
 }
 
 - (XCUIElement *)hittableButtonWithIdentifier:(NSString *)identifier
