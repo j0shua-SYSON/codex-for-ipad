@@ -20,7 +20,10 @@ next_mask:
     movl %eax, vector+12
     movups vector, %xmm0
     movl $-1, %edx
-    stc
+    # Set carry using an instruction supported by the baseline emulator.
+    # The test is about MOVMSKPS, not the separately unsupported STC opcode.
+    xorl %eax, %eax
+    cmpl $1, %eax
     movmskps %xmm0, %edx
     jnc failed
     cmpl %ebx, %edx
