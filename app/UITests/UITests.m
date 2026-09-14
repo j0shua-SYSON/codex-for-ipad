@@ -110,6 +110,11 @@
         XCTAssertTrue(workbenchToggle.isHittable);
         [workbenchToggle tap];
         XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
+        // Opening the inspector can move the toolbar into a different
+        // navigation container. Resolve its visible control again.
+        workbenchToggle = [self hittableButtonWithIdentifier:@"codexpad.toggle-workbench"
+                                               inApplication:app];
+        XCTAssertNotNil(workbenchToggle);
         [workbenchToggle tap];
         XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
     } else {
