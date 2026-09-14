@@ -10,7 +10,7 @@ CodexPad is a native iPadOS workspace for the open-source Codex coding agent. It
 > [!IMPORTANT]
 > CodexPad is an independent community port, not an official OpenAI or iSH app. It is an actively developed, unsigned preview rather than an App Store release.
 >
-> Verification is in progress. A fresh real-iSH probe found a guest startup failure in the previously packaged runtime. Cross-compilation and demo UI tests alone do not establish a working local agent. See [verification status](docs/VERIFICATION.md) before installing or relying on this preview.
+> Verification is in progress. The repaired iSH runtime now initializes Codex and reads account, model and filesystem data. Command execution still needs a Rust process-launch compatibility fix that is under test. Cross-compilation and demo UI tests alone do not establish a working local agent. See [verification status](docs/VERIFICATION.md) before installing or relying on this preview.
 
 ## What runs locally
 
@@ -69,11 +69,11 @@ gh run watch RUN_ID --repo j0shua-SYSON/codex-for-ipad --exit-status
 
 The workflow:
 
-1. fetches the exact Codex and iSH revisions in `Dependencies/upstreams.json`;
-2. applies the small i686-musl compatibility patch;
+1. fetches the exact Codex revision and checks out this reviewed iSH derivative;
+2. applies the i686-musl patch and the version-locked guest Rust process-launch patch;
 3. cross-compiles `codex-app-server` with the upstream-pinned Rust toolchain;
 4. builds a pinned Alpine x86 image with Git, ripgrep, Python, SSH, and the local OpenRC service;
-5. tests emulator instructions and real Codex initialization, model/account reads, filesystem access, and harmless Git/ripgrep execution;
+5. tests emulator instructions and real Codex initialization, model/account reads, filesystem access, and harmless Git/ripgrep execution on Linux and Darwin hosts, over stdio and WebSocket;
 6. builds an unsigned arm64 iPadOS app only after that real-runtime gate passes; and
 7. uploads the runtime, binary, test evidence, and (on success) `CodexPad-unsigned-iPadOS` artifacts.
 
@@ -93,7 +93,7 @@ For a Mac build, clone with submodules and open `iSH.xcodeproj`. Pass `CODEXPAD_
 
 The current upgrade candidate pins upstream `5b1d6560181680f95cde95c14ed042acc02248ed` (the latest `main` snapshot observed on September 14, 2026), using Rust 1.95.0. It adds project management, queued prompts, attachments, sections, Bedrock setup, user-verification methods, and `thread/revert` in place of `thread/rollback`.
 
-The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patch, and builds a candidate before opening a pin-update pull request. The parity gate compares stable and experimental method names with the GUI catalog and verifies that the bundled stable schema exactly matches upstream. New methods and schema changes require explicit integration work. These checks do not replace native regressions, a real guest handshake/command probe, or physical-device verification.
+The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patches, and runs the build and real-runtime gates before opening a pin-update pull request. The parity gate compares stable and experimental method names with the GUI catalog and verifies that the bundled stable schema exactly matches upstream. New methods and schema changes require explicit integration work. A Rust version change also requires reviewing the guest standard-library patch; it fails closed on an unreviewed compiler revision. These checks do not replace native regressions or physical-device verification.
 
 Platform-specific code is concentrated in `app/CodexPad`, `runtime`, `patches`, and the build workflows, with small host hooks in `AppGroup.m`, `SceneDelegate.m`, `TerminalViewController`, and the Xcode project. The upstream Codex checkout is never edited in place, and the iSH changes remain deliberately narrow and reviewable.
 
