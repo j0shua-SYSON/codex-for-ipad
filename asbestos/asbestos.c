@@ -37,6 +37,8 @@ void asbestos_free(struct asbestos *asbestos) {
     fiber_free_jetsam(asbestos);
     free(asbestos->page_hash);
     free(asbestos->hash);
+    wrlock_destroy(&asbestos->jetsam_lock);
+    if (pthread_mutex_destroy(&asbestos->lock.m)) __builtin_trap();
     free(asbestos);
 }
 
