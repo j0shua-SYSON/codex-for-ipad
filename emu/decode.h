@@ -286,7 +286,7 @@ restart:
                            READMODRM; V_OP(single_ucomi, xmm_modrm_val, xmm_modrm_reg,64); break;
 
                 case 0x50: TRACEI("movmskpd xmm:modrm, reg");
-                           READMODRM; V_OP(fmovmask_d, xmm_modrm_val, modrm_reg,128); break;
+                           READMODRM_NOMEM; V_OP(fmovmask_d, xmm_modrm_val, modrm_reg,128); break;
 
                 case 0x54: TRACEI("andpd xmm:modrm, xmm");
                            READMODRM; V_OP(and_dq, xmm_modrm_val, xmm_modrm_reg,128); break;
@@ -501,6 +501,9 @@ restart:
                            READMODRM; V_OP(single_ucomi, xmm_modrm_val, xmm_modrm_reg,32); break;
                 case 0x2f: TRACEI("comiss xmm, xmm:modrm");
                            READMODRM; V_OP(single_ucomi, xmm_modrm_val, xmm_modrm_reg,32); break;
+
+                case 0x50: TRACEI("movmskps xmm:modrm, reg");
+                           READMODRM_NOMEM; V_OP(fmovmask_s, xmm_modrm_val, modrm_reg,128); break;
 
                 case 0x54: TRACEI("andps xmm:modrm, xmm");
                            READMODRM; V_OP(and_dq, xmm_modrm_val, xmm_modrm_reg,128); break;
