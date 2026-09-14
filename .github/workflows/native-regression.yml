@@ -56,8 +56,21 @@ jobs:
             app/CodexPad/CodexWorkspaceModel.swift tests/codexpad/ModelRegression.swift \
             -o artifacts/model-regression
           artifacts/model-regression | tee artifacts/model-regression.log
+      - name: Exercise the production Foundation WebSocket transport
+        shell: bash
+        run: |
+          set -euo pipefail
+          swiftc -parse-as-library app/CodexPad/CodexJSON.swift \
+            app/CodexPad/CodexRPC.swift tests/codexpad/RPCRegression.swift \
+            -o artifacts/rpc-regression
+          python3 -m venv artifacts/rpc-fixture-env
+          artifacts/rpc-fixture-env/bin/pip install websockets==15.0.1
+          artifacts/rpc-fixture-env/bin/python tests/codexpad/rpc-fixture.py \
+            artifacts/rpc-regression | tee artifacts/rpc-regression.log
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: Native-model-regression
-          path: artifacts/model-regression.log
+          path: |
+            artifacts/model-regression.log
+            artifacts/rpc-regression.log
