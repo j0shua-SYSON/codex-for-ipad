@@ -93,6 +93,7 @@ jobs:
           timeout 60 build/ish -f artifacts/guest /usr/local/libexec/codexpad/codex-app-server --help
           "$PROBE_PYTHON" scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --stderr-log artifacts/guest-syscalls.log | tee artifacts/runtime-probe.log
           "$PROBE_PYTHON" scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --transport websocket --stderr-log artifacts/guest-websocket.log | tee artifacts/websocket-probe.log
+          "$PROBE_PYTHON" scripts/probe-ish-runtime.py --ish build/ish --root artifacts/guest --transport websocket --startup init --stderr-log artifacts/guest-boot.log | tee artifacts/boot-probe.log
       - name: Diagnose guest crash
         if: failure() && runner.os == 'Linux'
         shell: bash
@@ -140,4 +141,6 @@ jobs:
             artifacts/guest-syscalls.log
             artifacts/guest-websocket.log
             artifacts/websocket-probe.log
+            artifacts/guest-boot.log
+            artifacts/boot-probe.log
             artifacts/darwin-diagnostics/

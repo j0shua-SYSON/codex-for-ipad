@@ -16,30 +16,51 @@ def main():
     parser.add_argument("--root", required=True)
     parser.add_argument("--stderr-log")
     parser.add_argument("--transport", choices=["stdio", "websocket"], default="stdio")
+    parser.add_argument("--startup", choices=["server", "init"], default="server")
     args = parser.parse_args()
+    if args.startup == "init" and args.transport != "websocket":
+        parser.error("init startup requires WebSocket transport")
     # Host syscall traces may contain arbitrary guest bytes, not UTF-8 text.
     diagnostics = open(args.stderr_log, "wb") if args.stderr_log else None
     address = "ws://127.0.0.1:4500" if args.transport == "websocket" else "stdio://"
     connection = None
     stopping = threading.Event()
+    console_master = console_slave = None
+    guest_command = ["/bin/sh", "-lc",
+        f"echo CODEXPAD_SHELL_READY >&2; /usr/local/libexec/codexpad/codex-app-server --listen {address}; result=$?; echo CODEXPAD_SERVER_EXIT=$result >&2; /bin/dmesg >&2; exit $result"]
+    if args.startup == "init":
+        import pty
+        console_master, console_slave = pty.openpty()
+        guest_command = ["/sbin/init"]
     process = subprocess.Popen(
-        [args.ish, "-f", args.root, "-d", "/root/workspace", "/bin/sh", "-lc",
-         f"echo CODEXPAD_SHELL_READY >&2; /usr/local/libexec/codexpad/codex-app-server --listen {address}; result=$?; echo CODEXPAD_SERVER_EXIT=$result >&2; /bin/dmesg >&2; exit $result"],
-        stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=diagnostics or subprocess.STDOUT,
+        [args.ish, "-f", args.root, "-d", "/root/workspace", *guest_command],
+        stdin=console_slave if console_slave is not None else subprocess.PIPE,
+        stdout=console_slave if console_slave is not None else subprocess.PIPE,
+        stderr=diagnostics or subprocess.STDOUT,
         text=True, bufsize=1, start_new_session=True,
     )
+    if console_slave is not None:
+        os.close(console_slave)
+    output = os.fdopen(console_master, "r", encoding="utf-8", errors="replace") if console_master is not None else process.stdout
     messages = queue.Queue()
 
     def read():
-        for line in process.stdout:
-            print(line.rstrip(), flush=True)
-            try:
-                messages.put(json.loads(line))
-            except json.JSONDecodeError:
-                pass
-        messages.put(None)
+        try:
+            for line in output:
+                print(line.rstrip(), flush=True)
+                try:
+                    messages.put(json.loads(line))
+                except json.JSONDecodeError:
+                    pass
+        except OSError:
+            # A PTY master reports EIO when init/the last slave closes.
+            if console_master is None:
+                raise
+        finally:
+            messages.put(None)
 
-    threading.Thread(target=read, daemon=True).start()
+    output_reader = threading.Thread(target=read, daemon=True)
+    output_reader.start()
 
     def send(value):
         if connection is not None:
@@ -141,7 +162,7 @@ def main():
             with open(args.stderr_log, "rb") as log:
                 if any(b"panicked at" in line for line in log):
                     raise RuntimeError("A guest background thread panicked; see the diagnostic log")
-        print(f"PASS: real iSH {args.transport} command execution, Git and ripgrep. Inference/authentication remain untested.", flush=True)
+        print(f"PASS: real iSH {args.transport} ({args.startup} startup) command execution, Git and ripgrep. Inference/authentication remain untested.", flush=True)
     finally:
         stopping.set()
         if connection is not None:
@@ -162,6 +183,9 @@ def main():
                 except ProcessLookupError:
                     pass
                 process.wait()
+        output_reader.join(timeout=2)
+        if console_master is not None:
+            output.close()
         if diagnostics:
             diagnostics.close()
 
