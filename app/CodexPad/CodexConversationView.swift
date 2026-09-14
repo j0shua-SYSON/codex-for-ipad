@@ -62,6 +62,15 @@ struct CodexConversationView: View {
         ScrollViewReader { proxy in
             ScrollView {
                 LazyVStack(spacing: 0) {
+                    if model.hasEarlierHistory {
+                        Button(model.isLoadingHistory ? "Loading history…" : "Load earlier history") {
+                            followsOutput = false
+                            Task { await model.loadEarlierHistory() }
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(model.isLoadingHistory)
+                        .padding(.bottom, 12)
+                    }
                     if let error = model.errorBanner {
                         ErrorBanner(message: error) {
                             model.errorBanner = nil

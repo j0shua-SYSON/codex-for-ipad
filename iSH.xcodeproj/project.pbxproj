@@ -21,6 +21,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		CD100000000000000000000F /* CodexClientRequest.schema.json in Resources */ = {isa = PBXBuildFile; fileRef = CD200000000000000000000F /* CodexClientRequest.schema.json */; };
 		CD1000000000000000000001 /* CodexJSON.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2000000000000000000001 /* CodexJSON.swift */; };
 		CD1000000000000000000002 /* CodexRPC.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2000000000000000000002 /* CodexRPC.swift */; };
 		CD1000000000000000000003 /* CodexModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = CD2000000000000000000003 /* CodexModels.swift */; };
@@ -441,6 +442,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		CD200000000000000000000F /* CodexClientRequest.schema.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = CodexClientRequest.schema.json; sourceTree = "<group>"; };
 		CD2000000000000000000001 /* CodexJSON.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexJSON.swift; sourceTree = "<group>"; };
 		CD2000000000000000000002 /* CodexRPC.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexRPC.swift; sourceTree = "<group>"; };
 		CD2000000000000000000003 /* CodexModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CodexModels.swift; sourceTree = "<group>"; };
@@ -1116,6 +1118,7 @@
 		CD3000000000000000000001 /* CodexPad */ = {
 			isa = PBXGroup;
 			children = (
+				CD200000000000000000000F /* CodexClientRequest.schema.json */,
 				CD2000000000000000000001 /* CodexJSON.swift */,
 				CD2000000000000000000002 /* CodexRPC.swift */,
 				CD2000000000000000000003 /* CodexModels.swift */,
@@ -1797,6 +1800,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				CD100000000000000000000F /* CodexClientRequest.schema.json in Resources */,
 				BB38599627BCEE6B000A1082 /* idollarhash.png in Resources */,
 				BB3859A227BCEE6B000A1082 /* dollarblock2.png in Resources */,
 				BB3859A727BCEE6B000A1082 /* uninspired.png in Resources */,

@@ -152,7 +152,10 @@ static void halt_system(void) {
         int tasks_found = 0;
         for (int i = 2; i < MAX_PID; i++) {
             struct task *task = pid_get_task(i);
-            if (task != NULL) {
+            // Exiting tasks have already released their sighand but remain in
+            // the pid table until teardown completes. Signalling one (including
+            // the last init worker itself) dereferences a null sighand.
+            if (task != NULL && !task->exiting && !task->zombie) {
                 tasks_found++;
                 switch (state) {
                 case 0:
@@ -168,8 +171,14 @@ static void halt_system(void) {
         }
         if (tasks_found == 0)
             break;
-        if (state != 2)
+        if (state != 2) {
+            // do_exit needs this lock to finish the termination we requested.
+            // Keeping it locked while waiting prevents every guest thread from
+            // making progress and unnecessarily escalates to host SIGTERM.
+            unlock(&pids_lock);
             sleep(1);
+            lock(&pids_lock);
+        }
     }
 
     // unmount all filesystems

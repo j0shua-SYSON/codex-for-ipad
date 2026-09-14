@@ -168,6 +168,9 @@ def main() -> int:
 
     project_root = pathlib.Path(__file__).resolve().parents[1]
     catalog_path = project_root / "app" / "CodexPad" / "CodexFeatureCatalog.swift"
+    bundled_schema = read_json(catalog_path.parent / "CodexClientRequest.schema.json", failures)
+    if bundled_schema != documents.get("ClientRequest.json"):
+        failures.append("bundled request schema differs from upstream; refresh the GUI field reference before accepting this pin")
     try:
         catalog_source = catalog_path.read_text(encoding="utf-8")
         catalog_clients = marker_lines(catalog_source, "CLIENT_METHODS")

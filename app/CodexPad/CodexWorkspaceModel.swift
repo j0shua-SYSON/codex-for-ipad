@@ -30,6 +30,8 @@ final class CodexWorkspaceModel: ObservableObject {
         }
     }
     @Published var timelineByThread: [String: [TimelineItem]] = [:]
+    @Published private var olderTurnCursors: [String: String] = [:]
+    @Published private var loadingHistory: Set<String> = []
     @Published var pendingRequests: [PendingServerRequest] = []
     @Published private var plans: [String: [PlanStep]] = [:]
     @Published private var diffs: [String: String] = [:]
@@ -180,6 +182,33 @@ final class CodexWorkspaceModel: ObservableObject {
         return timelineByThread[selectedThreadID] ?? []
     }
 
+    var hasEarlierHistory: Bool { olderTurnCursors[selectedThreadID ?? ""] != nil }
+    var isLoadingHistory: Bool { loadingHistory.contains(selectedThreadID ?? "") }
+
+    func loadEarlierHistory() async {
+        guard let id = selectedThreadID, let cursor = olderTurnCursors[id],
+              !loadingHistory.contains(id), enginePhase.isReady else { return }
+        loadingHistory.insert(id)
+        defer { loadingHistory.remove(id) }
+        do {
+            let response = try await rpc.request(method: "thread/turns/list", params: .object([
+                "threadId": .string(id), "cursor": .string(cursor), "limit": .integer(20),
+                "sortDirection": .string("desc"), "itemsView": .string("full")
+            ]))
+            let older = (response["data"]?.arrayValue ?? []).reversed().flatMap {
+                ($0["items"]?.arrayValue ?? []).compactMap(parseTimelineItem)
+            }
+            let current = timelineByThread[id, default: []]
+            let currentIDs = Set(current.map(\.id))
+            timelineByThread[id] = older.filter { !currentIDs.contains($0.id) } + current
+            let next = response["nextCursor"]?.stringValue
+            guard next != cursor else {
+                throw CodexRPCError(code: nil, message: "thread/turns/list repeated its history cursor")
+            }
+            olderTurnCursors[id] = next
+        } catch { report(error, context: "Could not load earlier thread history") }
+    }
+
     var selectedModel: CodexModelOption? {
         availableModels.first { $0.id == selectedModelID }
     }
@@ -252,16 +281,30 @@ final class CodexWorkspaceModel: ObservableObject {
     func refreshThreads() async {
         guard enginePhase.isReady else { return }
         do {
-            let response = try await rpc.request(
+            var records: [CodexThreadRecord] = []
+            var cursor: String?
+            var cursors: Set<String> = []
+            repeat {
+              let response = try await rpc.request(
                 method: "thread/list",
                 params: .object([
-                    "cursor": .null,
+                    "cursor": cursor.map(JSONValue.string) ?? .null,
                     "limit": .integer(60),
                     "sortKey": .string("recency_at"),
                     "sortDirection": .string("desc")
                 ])
             )
-            let records = response["data"]?.arrayValue?.compactMap(parseThread) ?? []
+              records += response["data"]?.arrayValue?.compactMap(parseThread) ?? []
+              cursor = response["nextCursor"]?.stringValue
+              if let cursor, !cursors.insert(cursor).inserted {
+                  throw CodexRPCError(code: nil, message: "thread/list repeated a pagination cursor")
+              }
+            } while cursor != nil
+            var ids: Set<String> = []
+            records = records.filter { ids.insert($0.id).inserted }
+            // Keep an active selected thread that was created after this list
+            // snapshot; otherwise a refresh can make its conversation vanish.
+            if let selectedThread, !ids.contains(selectedThread.id) { records.insert(selectedThread, at: 0) }
             threads = records
             if selectedThreadID == nil {
                 selectedThreadID = records.first?.id
@@ -531,8 +574,17 @@ final class CodexWorkspaceModel: ObservableObject {
                 "roots": .array([.string(path)]),
                 "cancellationToken": .null
             ])
+        case "project/create", "project/import":
+            value = .object(["name": .string("New project"), "roots": .array([.object(["path": .string(path)])]), "idempotencyKey": .string(UUID().uuidString)])
+        case "project/read", "project/update", "project/delete", "project/move":
+            value = .object(["projectId": .string("<project-id>")])
         default:
-            if method.hasPrefix("thread/") {
+            if let template = CodexFeatureCatalog.parameterTemplate(for: method) {
+                var object = template.objectValue
+                if object?["threadId"] != nil { object?["threadId"] = .string(threadID) }
+                if object?["path"] != nil { object?["path"] = .string(path) }
+                value = object.map(JSONValue.object) ?? template
+            } else if method.hasPrefix("thread/") {
                 value = .object(["threadId": .string(threadID)])
             } else {
                 value = .object([:])
@@ -564,6 +616,9 @@ final class CodexWorkspaceModel: ObservableObject {
             return "Invalid JSON: \(error.localizedDescription)"
         }
 
+        let missing = CodexFeatureCatalog.missingRequiredParameters(method: method, params: params)
+        guard missing.isEmpty else { return "Missing required parameters: \(missing.joined(separator: ", "))" }
+
         if demoMode {
             let sample: JSONValue = .object([
                 "demo": .bool(true),
@@ -576,6 +631,25 @@ final class CodexWorkspaceModel: ObservableObject {
         guard enginePhase.isReady else { return "The local Codex engine is not connected." }
         do {
             let response = try await rpc.request(method: method, params: params)
+            if let raw = response["thread"], let record = parseThread(raw) {
+                upsertThread(record, atFront: true)
+                if method == "thread/start" || method == "thread/fork" { selectedThreadID = record.id }
+                if let turns = raw["turns"]?.arrayValue, !turns.isEmpty {
+                    timelineByThread[record.id] = turns.flatMap { ($0["items"]?.arrayValue ?? []).compactMap(parseTimelineItem) }
+                }
+            }
+            if ["thread/archive", "thread/delete"].contains(method), let id = params?["threadId"]?.stringValue {
+                threads.removeAll { $0.id == id }
+                timelineByThread[id] = nil
+                if selectedThreadID == id { await selectThread(threads.first?.id) }
+            }
+            if method == "account/logout" { account = AccountSummary() }
+            if method == "account/login/start" {
+                loginURL = response["authUrl"]?.stringValue.flatMap(URL.init(string:))
+                deviceCode = response["userCode"]?.stringValue
+                deviceVerificationURL = response["verificationUrl"]?.stringValue.flatMap(URL.init(string:))
+                await refreshAccount()
+            }
             recordProtocolEvent(method: "response/\(method)", payload: response)
             return response.prettyPrinted
         } catch {
@@ -661,6 +735,7 @@ final class CodexWorkspaceModel: ObservableObject {
             )
             }
             let turns = rawThread["turns"]?.arrayValue ?? []
+            olderTurnCursors[id] = response["turnsBackwardsCursor"]?.stringValue
             if timelineRevisions[id, default: 0] == timelineRevision {
               timelineByThread[id] = turns.flatMap { turn in
                 turn["items"]?.arrayValue?.compactMap(parseTimelineItem) ?? []
@@ -669,7 +744,10 @@ final class CodexWorkspaceModel: ObservableObject {
             if turnRevisions[id, default: 0] == turnRevision {
                 activeTurns[id] = turns.last(where: { $0["status"]?.stringValue == "inProgress" })?["id"]?.stringValue
             }
-            if selectedThreadID == id, selectionGeneration == selectionAtStart { await loadDirectory(cwd) }
+            if selectedThreadID == id, selectionGeneration == selectionAtStart {
+                if turns.isEmpty, hasEarlierHistory { await loadEarlierHistory() }
+                await loadDirectory(cwd)
+            }
         } catch {
             report(error, context: "Could not resume the thread")
         }

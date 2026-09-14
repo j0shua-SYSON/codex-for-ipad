@@ -55,6 +55,9 @@ struct ModelRegression {
         .object(["threadId": .string(thread), "turn": .object(["id": .string(id), "status": .string(status), "items": .array([])])])
     }
     static func main() async {
+        check(CodexFeatureCatalog.parameterSchema(for: "turn/start") != nil, "pinned request schema is loadable")
+        check(CodexFeatureCatalog.missingRequiredParameters(method: "turn/start", params: .object([:])).contains("threadId"), "schema requires a thread ID before advanced execution")
+        check(CodexFeatureCatalog.parameterReference(for: "turn/start")?.contains("definitions") == true, "nested parameter definitions are available offline")
         let rpc = FakeRPC()
         let m = model(rpc)
         rpc.event("turn/started", turn("A", "turnA"))
