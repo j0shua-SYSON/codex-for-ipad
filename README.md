@@ -42,6 +42,8 @@ The interface uses a native `NavigationSplitView` for recent threads and the sem
 
 Choosing a folder in **Settings > Workspace** invokes iSH's native `ios` filesystem driver. The Files picker grants a security-scoped bookmark and iSH mounts that folder at `/root/workspaces/codexpad-files`. CodexPad updates its workspace defaults and requests a thread working-directory update; if the server rejects that update, the thread retains its previous directory. iSH restores saved mounts on later launches. Unlinking requires a live engine and does not delete the folder. Real Files-provider access and relaunch behavior still require device verification.
 
+Folder selection does not silently unmount existing access. Unlink the current folder explicitly before choosing another; cancellation leaves the previous workspace selection unchanged.
+
 ## Complete GUI coverage
 
 The searchable Feature Center tracks the exact pinned app-server protocol instead of a hand-picked feature list:
@@ -60,6 +62,8 @@ See [the HIG release checklist](docs/HIG_CHECKLIST.md) and [the architecture](do
 ## Build with GitHub Actions
 
 Windows contributors do not need Xcode, Rust, Zig, Docker, or local package installs. Start **Codex i686 compatibility** from the Actions tab or with GitHub CLI:
+
+While this upgrade is unmerged, use `--ref upgrade/codex-5b1d65601816` instead of `--ref main` to test the candidate.
 
 ```powershell
 gh workflow run codex-i686.yml --repo j0shua-SYSON/codex-for-ipad --ref main
