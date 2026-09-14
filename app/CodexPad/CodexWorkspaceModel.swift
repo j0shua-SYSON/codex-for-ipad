@@ -198,13 +198,13 @@ final class CodexWorkspaceModel: ObservableObject {
             let older = (response["data"]?.arrayValue ?? []).reversed().flatMap {
                 ($0["items"]?.arrayValue ?? []).compactMap(parseTimelineItem)
             }
-            let current = timelineByThread[id, default: []]
-            let currentIDs = Set(current.map(\.id))
-            timelineByThread[id] = older.filter { !currentIDs.contains($0.id) } + current
             let next = response["nextCursor"]?.stringValue
             guard next != cursor else {
                 throw CodexRPCError(code: nil, message: "thread/turns/list repeated its history cursor")
             }
+            let current = timelineByThread[id, default: []]
+            var itemIDs = Set(current.map(\.id))
+            timelineByThread[id] = older.filter { itemIDs.insert($0.id).inserted } + current
             olderTurnCursors[id] = next
         } catch { report(error, context: "Could not load earlier thread history") }
     }
