@@ -15,7 +15,24 @@ struct CodexRPCError: LocalizedError, Equatable, Sendable {
 }
 
 @MainActor
-final class CodexRPCClient: ObservableObject {
+protocol CodexRPCServing: AnyObject {
+    var inboundHandler: ((RPCInbound) -> Void)? { get set }
+    var stateHandler: ((CodexRPCClient.State) -> Void)? { get set }
+    func connect() async throws
+    func disconnect()
+    func request(method: String, params: JSONValue?) async throws -> JSONValue
+    func respond(to id: JSONValue, result: JSONValue) async throws
+    func respondUnsupported(to id: JSONValue, method: String) async throws
+}
+
+extension CodexRPCServing {
+    func request(method: String) async throws -> JSONValue {
+        try await request(method: method, params: nil)
+    }
+}
+
+@MainActor
+final class CodexRPCClient: ObservableObject, CodexRPCServing {
     enum State: Equatable {
         case disconnected
         case connecting
@@ -23,9 +40,12 @@ final class CodexRPCClient: ObservableObject {
         case failed(String)
     }
 
-    @Published private(set) var state: State = .disconnected
+    @Published private(set) var state: State = .disconnected {
+        didSet { stateHandler?(state) }
+    }
 
     var inboundHandler: ((RPCInbound) -> Void)?
+    var stateHandler: ((State) -> Void)?
 
     private let endpoint: URL
     private var session: URLSession?
@@ -33,6 +53,8 @@ final class CodexRPCClient: ObservableObject {
     private var receiveTask: Task<Void, Never>?
     private var nextRequestID = 1
     private var pending: [Int: CheckedContinuation<JSONValue, Error>] = [:]
+    private var deadlines: [Int: Task<Void, Never>] = [:]
+    private var generation = 0
 
     init(endpoint: URL = URL(string: "ws://127.0.0.1:4500")!) {
         self.endpoint = endpoint
@@ -41,6 +63,7 @@ final class CodexRPCClient: ObservableObject {
     func connect() async throws {
         guard state != .connected else { return }
         disconnect()
+        let connectionGeneration = generation
         state = .connecting
 
         let configuration = URLSessionConfiguration.ephemeral
@@ -71,15 +94,17 @@ final class CodexRPCClient: ObservableObject {
                     ])
                 ])
             )
+            guard generation == connectionGeneration else { throw CancellationError() }
             try await notify(method: "initialized", params: nil)
             state = .connected
         } catch {
-            failConnection(error)
+            if generation == connectionGeneration { failConnection(error) }
             throw error
         }
     }
 
     func disconnect() {
+        generation += 1
         receiveTask?.cancel()
         receiveTask = nil
         socket?.cancel(with: .goingAway, reason: nil)
@@ -91,6 +116,8 @@ final class CodexRPCClient: ObservableObject {
             continuation.resume(throwing: error)
         }
         pending.removeAll()
+        deadlines.values.forEach { $0.cancel() }
+        deadlines.removeAll()
         state = .disconnected
     }
 
@@ -109,15 +136,33 @@ final class CodexRPCClient: ObservableObject {
             object["params"] = params
         }
 
-        return try await withCheckedThrowingContinuation { continuation in
+        return try await withTaskCancellationHandler {
+          try Task.checkCancellation()
+          return try await withCheckedThrowingContinuation { continuation in
             pending[id] = continuation
-            Task { [weak self, weak socket] in
-                guard let self, let socket else { return }
+            // Interactive commands (including the Files picker) intentionally
+            // have no deadline; all ordinary RPCs must eventually release UI.
+            if params?["disableTimeout"]?.boolValue != true {
+                let seconds = method == "initialize" ? 10 : max(120, (params?["timeoutMs"]?.intValue ?? 0) / 1000 + 10)
+                deadlines[id] = Task { [weak self] in
+                    do { try await Task.sleep(for: .seconds(seconds)) } catch { return }
+                    self?.resolveRequest(id: id, with: .failure(CodexRPCError(
+                        code: nil, message: "\(method) timed out; its server-side outcome may be unknown."
+                    )))
+                }
+            }
+            Task { [weak self] in
+                guard let self else { return }
                 do {
                     try await self.send(.object(object), through: socket)
                 } catch {
                     self.resolveRequest(id: id, with: .failure(error))
                 }
+            }
+          }
+        } onCancel: {
+            Task { @MainActor [weak self] in
+                self?.resolveRequest(id: id, with: .failure(CancellationError()))
             }
         }
     }
@@ -173,9 +218,10 @@ final class CodexRPCClient: ObservableObject {
                     continue
                 }
                 let value = try JSONDecoder().decode(JSONValue.self, from: data)
+                guard self.socket === socket else { return }
                 handle(value)
             } catch {
-                if !Task.isCancelled {
+                if !Task.isCancelled, self.socket === socket {
                     failConnection(error)
                 }
                 return
@@ -222,16 +268,46 @@ final class CodexRPCClient: ObservableObject {
 
     private func resolveRequest(id: Int, with result: Result<JSONValue, Error>) {
         guard let continuation = pending.removeValue(forKey: id) else { return }
+        deadlines.removeValue(forKey: id)?.cancel()
         continuation.resume(with: result)
     }
 
     private func failConnection(_ error: Error) {
         let message = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        disconnect()
         state = .failed(message)
-        for continuation in pending.values {
-            continuation.resume(throwing: error)
+    }
+}
+
+/// Deterministic preview transport. It never touches the guest or credentials.
+/// UI automation verifies presentation against this fixture, not live inference.
+@MainActor
+final class CodexDemoRPCClient: CodexRPCServing {
+    var inboundHandler: ((RPCInbound) -> Void)?
+    var stateHandler: ((CodexRPCClient.State) -> Void)?
+    func connect() async throws { stateHandler?(.connected) }
+    func disconnect() { stateHandler?(.disconnected) }
+    func respond(to id: JSONValue, result: JSONValue) async throws {}
+    func respondUnsupported(to id: JSONValue, method: String) async throws {}
+
+    func request(method: String, params: JSONValue?) async throws -> JSONValue {
+        if method == "turn/start", let threadID = params?["threadId"]?.stringValue {
+            let turn: JSONValue = .object(["id": .string(UUID().uuidString), "status": .string("completed"), "items": .array([])])
+            let item: JSONValue = .object([
+                "id": .string(UUID().uuidString), "type": .string("agentMessage"),
+                "text": .string("Demo response received. No model or guest command was executed.")
+            ])
+            inboundHandler?(.notification(method: "item/completed", params: .object(["threadId": .string(threadID), "item": item])))
+            inboundHandler?(.notification(method: "turn/completed", params: .object(["threadId": .string(threadID), "turn": turn])))
+            return .object(["turn": turn])
         }
-        pending.removeAll()
+        if method == "thread/start" {
+            return .object(["thread": .object([
+                "id": .string(UUID().uuidString), "name": .string("Demo thread"),
+                "cwd": params?["cwd"] ?? .string("/root/workspace"), "turns": .array([])
+            ])])
+        }
+        return .object(["demo": .bool(true), "method": .string(method)])
     }
 }
 

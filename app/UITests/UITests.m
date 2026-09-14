@@ -54,6 +54,9 @@
     [self expectationForPredicate:focused evaluatedWithObject:composer handler:nil];
     [self waitForExpectationsWithTimeout:5 handler:nil];
 
+    XCTAssertTrue([app.staticTexts[@"Demo response received. No model or guest command was executed."] waitForExistenceWithTimeout:5]);
+    XCTAssertFalse([app.staticTexts[@"Could not start the turn: Codex engine is not connected"] exists]);
+
     XCUIElement *features = [self hittableButtonWithIdentifier:@"codexpad.features"
                                                  inApplication:app];
     XCTAssertNotNil(features);
@@ -111,6 +114,13 @@
         XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
     } else {
         XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
+        XCUIElement *workbenchToggle = app.buttons[@"codexpad.toggle-workbench"];
+        XCTAssertTrue(workbenchToggle.isHittable);
+        [workbenchToggle tap];
+        XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
+        XCTAssertTrue([[app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.workbench-tabs"] exists]);
+        [app.buttons[@"Done"] tap];
+        XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
     }
 
     XCUIElement *sidebar = [app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.sidebar"];
@@ -133,21 +143,18 @@
                                                      inApplication:app];
         BOOL openedSettingsFromSidebar = NO;
         if (settings == nil) {
-            // At 11-inch portrait widths, NavigationSplitView correctly
-            // collapses its sidebar. Exercise the visible system sidebar
-            // control before opening the bottom-pinned account settings. SwiftUI
-            // does not publish that row as a stable XCUIElement in this compact
-            // presentation, so let the system overlay animation settle, tap
-            // the row's verified compact-screen position, and assert the
-            // resulting Settings destination instead.
+            // Reveal the sidebar and exercise the actual account button;
+            // fixed screen coordinates could hide a broken hit target.
             XCUIElement *sidebarToggle = [self hittableButtonWithLabelContaining:@"sidebar"
                                                                     inApplication:app];
             XCTAssertNotNil(sidebarToggle);
             if ([sidebarToggle.label localizedCaseInsensitiveContainsString:@"show"]) {
                 [sidebarToggle tap];
             }
-            [NSThread sleepForTimeInterval:0.8];
-            [[app coordinateWithNormalizedOffset:CGVectorMake(0.20, 0.96)] tap];
+            XCUIElement *account = app.buttons[@"codexpad.settings"];
+            XCTAssertTrue([account waitForExistenceWithTimeout:5]);
+            XCTAssertTrue(account.isHittable);
+            [account tap];
             openedSettingsFromSidebar = YES;
         } else {
             [settings tap];

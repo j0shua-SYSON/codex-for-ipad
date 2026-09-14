@@ -2,11 +2,12 @@ import SwiftUI
 
 struct EngineStatusPill: View {
     let phase: EnginePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: 7) {
             Image(systemName: icon)
-                .symbolEffect(.pulse, isActive: isAnimated)
+                .symbolEffect(.pulse, isActive: isAnimated && !reduceMotion)
             Text(phase.title)
                 .lineLimit(1)
         }
@@ -187,7 +188,7 @@ struct TimelineCard: View {
                 .font(.callout.monospaced())
                 .foregroundStyle(CodexPalette.ink)
                 .textSelection(.enabled)
-        } else if let attributed = try? AttributedString(markdown: item.body) {
+        } else if let attributed = try? AttributedString(markdown: item.body, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)) {
             Text(attributed)
                 .font(.body)
                 .foregroundStyle(CodexPalette.ink)
@@ -307,6 +308,11 @@ struct ApprovalRequestCard: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .background(CodexPalette.canvas, in: RoundedRectangle(cornerRadius: 11, style: .continuous))
             }
+            DisclosureGroup("Full request details") {
+                Text(request.rawParams.prettyPrinted)
+                    .font(.caption.monospaced())
+                    .textSelection(.enabled)
+            }
             ViewThatFits(in: .horizontal) {
                 HStack {
                     actionButtons
@@ -347,6 +353,125 @@ struct ApprovalRequestCard: View {
                 .buttonStyle(.bordered)
                 .tint(CodexPalette.danger)
         }
+    }
+}
+
+/// Shared by the timeline and the request inbox, including while an advanced
+/// operation is waiting in a sheet. No request is stranded behind its caller.
+struct CodexServerRequestView: View {
+    @ObservedObject var model: CodexWorkspaceModel
+    let request: PendingServerRequest
+
+    var body: some View {
+        Group {
+            switch request.kind {
+            case .question:
+                QuestionRequestCard(request: request) { values in
+                    Task { await model.answer(request, values: values) }
+                }
+            case .advanced:
+                AdvancedServerRequestCard(request: request) { result in
+                    await model.answerAdvancedRequest(request, resultText: result)
+                } reject: {
+                    Task { await model.rejectAdvancedRequest(request) }
+                }
+            case .elicitation:
+                ElicitationRequestCard(model: model, request: request)
+            case .command where request.rawParams["availableDecisions"]?.arrayValue != nil:
+                VStack(alignment: .leading, spacing: 14) {
+                    Text(request.title).font(.headline)
+                    Text(request.message)
+                    Text(request.detail).font(.callout.monospaced()).textSelection(.enabled)
+                    DisclosureGroup("Full request and policy details") {
+                        Text(request.rawParams.prettyPrinted).font(.caption.monospaced()).textSelection(.enabled)
+                    }
+                    let decisions = request.rawParams["availableDecisions"]?.arrayValue ?? []
+                    ForEach(decisions.indices, id: \.self) { index in
+                        Button(decisionTitle(decisions[index])) {
+                            Task { await model.answerCommandDecision(request, decision: decisions[index]) }
+                        }.buttonStyle(.bordered)
+                    }
+                }.codexPanel()
+            default:
+                ApprovalRequestCard(request: request) { choice in
+                    Task { await model.resolve(request, choice: choice) }
+                }
+            }
+        }.id(request.id)
+    }
+
+    private func decisionTitle(_ decision: JSONValue) -> String {
+        switch decision.stringValue {
+        case "accept": return "Allow once"
+        case "acceptForSession": return "Allow for thread"
+        case "decline": return "Don’t allow"
+        case "cancel": return "Cancel turn"
+        default: return decision.prettyPrinted
+        }
+    }
+}
+
+private struct ElicitationRequestCard: View {
+    @ObservedObject var model: CodexWorkspaceModel
+    let request: PendingServerRequest
+    @State private var content = "{}"
+    @State private var error: String?
+    @State private var submitting = false
+
+    private var isURL: Bool { request.rawParams["mode"]?.stringValue == "url" }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            Label(request.title, systemImage: "questionmark.bubble").font(.headline)
+            Text(request.message)
+            if isURL {
+                if let string = request.rawParams["url"]?.stringValue,
+                   let url = URL(string: string), ["https", "http"].contains(url.scheme?.lowercased() ?? "") {
+                    Link("Open tool request: \(url.host ?? string)", destination: url)
+                    Text("Complete the tool’s page, then accept here.").font(.caption)
+                }
+            } else {
+                DisclosureGroup("Requested form schema") {
+                    Text(request.rawParams["requestedSchema"]?.prettyPrinted ?? "{}")
+                        .font(.caption.monospaced()).textSelection(.enabled)
+                }
+                Text("Enter the requested fields as a JSON object. Only accepting sends these values to the connected tool.")
+                    .font(.callout)
+                TextEditor(text: $content)
+                    .font(.callout.monospaced()).frame(minHeight: 140)
+                    .accessibilityLabel("Tool form JSON")
+            }
+            if let error { Text(error).foregroundStyle(CodexPalette.danger) }
+            ViewThatFits(in: .horizontal) {
+                HStack { actions }
+                VStack(alignment: .leading) { actions }
+            }
+        }.codexPanel()
+    }
+
+    @ViewBuilder private var actions: some View {
+        Button("Accept") {
+            Task {
+                submitting = true
+                defer { submitting = false }
+                do {
+                    let value: JSONValue
+                    if isURL { value = .null }
+                    else { value = try JSONDecoder().decode(JSONValue.self, from: Data(content.utf8)) }
+                    if !isURL, value.objectValue == nil {
+                        error = "Form content must be a JSON object."
+                        return
+                    }
+                    error = await model.answerAdvancedRequest(request, resultText: JSONValue.object([
+                        "action": .string("accept"), "content": value, "_meta": .null
+                    ]).prettyPrinted)
+                } catch { self.error = error.localizedDescription }
+            }
+        }.buttonStyle(.borderedProminent).disabled(submitting)
+        Button("Decline", role: .destructive) { Task { await model.resolve(request, choice: .decline) } }
+            .buttonStyle(.bordered).disabled(submitting)
+        Button("Cancel request", role: .cancel) { Task { await model.resolve(request, choice: .cancel) } }
+            .buttonStyle(.bordered).disabled(submitting)
     }
 }
 

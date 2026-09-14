@@ -13,9 +13,23 @@ struct CodexPadRootView: View {
     @State private var showsThreadBrowser = false
     @State private var didConfigureInitialLayout = false
     @State private var searchText = ""
+    @State private var windowWidth: CGFloat = 0
+    @State private var showsCompactWorkbench = false
+    @State private var opensSettingsAfterBrowser = false
+    @State private var showsRequests = false
 
     var body: some View {
         adaptiveWorkspace
+        .background {
+            GeometryReader { geometry in
+                Color.clear
+                    .onAppear { windowWidth = geometry.size.width; configureInitialLayout() }
+                    .onChange(of: geometry.size.width) { _, width in
+                        windowWidth = width
+                        prioritizeConversationIfNeeded()
+                    }
+            }
+        }
         .inspector(isPresented: $showsWorkbench) {
             CodexWorkbenchView(model: model)
                 .inspectorColumnWidth(min: 280, ideal: 320, max: 400)
@@ -23,13 +37,50 @@ struct CodexPadRootView: View {
         .accessibilityIdentifier("codexpad.workspace")
         .tint(CodexPalette.cobalt)
         .background(CodexPalette.canvas)
-        .sheet(isPresented: $model.showsSettings, onDismiss: model.requestComposerFocus) {
+        .sheet(isPresented: $model.showsSettings, onDismiss: {
+            if model.opensFeaturesAfterSettings {
+                model.opensFeaturesAfterSettings = false
+                model.showsFeatureCenter = true
+            } else { model.requestComposerFocus() }
+        }) {
             CodexSettingsView(model: model)
         }
         .sheet(isPresented: $model.showsFeatureCenter, onDismiss: model.requestComposerFocus) {
             CodexFeatureCenterView(model: model)
         }
-        .sheet(isPresented: $showsThreadBrowser) {
+        .sheet(isPresented: $showsCompactWorkbench, onDismiss: model.requestComposerFocus) {
+            NavigationStack {
+                CodexWorkbenchView(model: model)
+                    .toolbar {
+                        ToolbarItem(placement: .confirmationAction) {
+                            Button("Done") { showsCompactWorkbench = false }
+                        }
+                    }
+            }
+        }
+        .sheet(isPresented: $showsRequests) {
+            NavigationStack {
+                ScrollView {
+                    VStack(spacing: 16) {
+                        ForEach(model.pendingRequests) { request in
+                            CodexServerRequestView(model: model, request: request)
+                        }
+                    }.padding()
+                }
+                .navigationTitle("Pending requests")
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("Done") { showsRequests = false }
+                    }
+                }
+            }
+        }
+        .sheet(isPresented: $showsThreadBrowser, onDismiss: {
+            if opensSettingsAfterBrowser {
+                opensSettingsAfterBrowser = false
+                model.showsSettings = true
+            }
+        }) {
             NavigationStack {
                 sidebar
                     .toolbar {
@@ -43,7 +94,6 @@ struct CodexPadRootView: View {
             .presentationDragIndicator(.visible)
         }
         .task {
-            configureInitialLayout()
             await model.start()
         }
         .onChange(of: dynamicTypeSize) { _, _ in
@@ -100,6 +150,7 @@ struct CodexPadRootView: View {
 
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Menu {
+                        Button("Account settings", systemImage: "person.crop.circle") { model.showsSettings = true }
                         Toggle("Desktop mode", isOn: $model.desktopModeEnabled)
                         if !model.desktopModeEnabled {
                             Toggle("Show all Codex features", isOn: $model.showAllFeaturesInTouchMode)
@@ -111,6 +162,13 @@ struct CodexPadRootView: View {
                         )
                     }
                     .accessibilityIdentifier("codexpad.input-mode")
+
+                    if !model.pendingRequests.isEmpty {
+                        Button { showsRequests = true } label: {
+                            Label("\(model.pendingRequests.count) pending requests", systemImage: "hand.raised")
+                        }
+                        .accessibilityIdentifier("codexpad.pending-requests")
+                    }
 
                     if model.showsCompleteFeatureSet {
                         Button {
@@ -129,11 +187,11 @@ struct CodexPadRootView: View {
                     }
                     .accessibilityIdentifier("codexpad.new-thread")
                     .keyboardShortcut("n", modifiers: .command)
-                    .disabled(!model.enginePhase.isReady)
+                    .disabled(!model.enginePhase.isReady || model.isCreatingThread)
 
-                    if !shouldPrioritizeConversation {
                         Button {
-                            showsWorkbench.toggle()
+                            if shouldPrioritizeConversation { showsCompactWorkbench = true }
+                            else { showsWorkbench.toggle() }
                         } label: {
                             Label(
                                 showsWorkbench ? "Hide workbench" : "Show workbench",
@@ -143,7 +201,6 @@ struct CodexPadRootView: View {
                         .accessibilityIdentifier("codexpad.toggle-workbench")
                         .accessibilityValue(showsWorkbench ? "Shown" : "Hidden")
                         .keyboardShortcut("i", modifiers: [.command, .option])
-                    }
                 }
             }
     }
@@ -171,8 +228,7 @@ struct CodexPadRootView: View {
                             .tag(thread.id)
                             .contextMenu {
                                 Button("Archive", systemImage: "archivebox") {
-                                    model.selectedThreadID = thread.id
-                                    Task { await model.archiveSelectedThread() }
+                                    Task { await model.archiveThread(thread.id) }
                                 }
                             }
                     }
@@ -183,8 +239,10 @@ struct CodexPadRootView: View {
 
             Divider().overlay(CodexPalette.line)
             Button {
-                showsThreadBrowser = false
-                model.showsSettings = true
+                if showsThreadBrowser {
+                    opensSettingsAfterBrowser = true
+                    showsThreadBrowser = false
+                } else { model.showsSettings = true }
             } label: {
                 HStack {
                     Label(model.account.displayName, systemImage: model.account.isAuthenticated ? "person.crop.circle.fill" : "person.crop.circle.badge.questionmark")
@@ -193,13 +251,13 @@ struct CodexPadRootView: View {
                         .font(.caption.weight(.semibold))
                         .foregroundStyle(CodexPalette.secondaryInk)
                 }
+                .padding(.horizontal, 18)
+                .frame(minHeight: 54)
+                .contentShape(Rectangle())
             }
             .accessibilityLabel("Account settings, \(model.account.displayName)")
             .accessibilityIdentifier("codexpad.settings")
             .buttonStyle(.plain)
-            .contentShape(Rectangle())
-            .padding(.horizontal, 18)
-            .frame(minHeight: 54)
             .background(.bar)
         }
         .accessibilityIdentifier("codexpad.sidebar")
@@ -229,7 +287,7 @@ struct CodexPadRootView: View {
     }
 
     private func prioritizeConversationIfNeeded() {
-        if shouldPrioritizeConversation || UIScreen.main.bounds.width < 1_100 {
+        if shouldPrioritizeConversation || windowWidth < 1_100 {
             showsWorkbench = false
         }
     }
@@ -241,12 +299,12 @@ struct CodexPadRootView: View {
         }
         didConfigureInitialLayout = true
         showsWorkbench = !shouldPrioritizeConversation
-            && UIScreen.main.bounds.width >= 1_100
+            && windowWidth >= 1_100
     }
 
     private var shouldPrioritizeConversation: Bool {
         dynamicTypeSize.isAccessibilitySize
             || horizontalSizeClass == .compact
-            || UIScreen.main.bounds.width < 800
+            || windowWidth < 800
     }
 }

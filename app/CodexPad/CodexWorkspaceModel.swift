@@ -17,11 +17,30 @@ private enum CodexPadPreferenceKey {
 final class CodexWorkspaceModel: ObservableObject {
     @Published var enginePhase: EnginePhase = .starting
     @Published var threads: [CodexThreadRecord] = []
-    @Published var selectedThreadID: String?
+    @Published var selectedThreadID: String? {
+        didSet {
+            guard oldValue != selectedThreadID else { return }
+            drafts[oldValue ?? ""] = composerText
+            composerText = drafts[selectedThreadID ?? "", default: ""]
+            selectionGeneration += 1
+            directoryGeneration += 1
+            directoryEntries = []
+            filePreviewName = nil
+            filePreview = ""
+        }
+    }
     @Published var timelineByThread: [String: [TimelineItem]] = [:]
     @Published var pendingRequests: [PendingServerRequest] = []
-    @Published var plan: [PlanStep] = []
-    @Published var currentDiff = ""
+    @Published private var plans: [String: [PlanStep]] = [:]
+    @Published private var diffs: [String: String] = [:]
+    var plan: [PlanStep] {
+        get { plans[selectedThreadID ?? "", default: []] }
+        set { plans[selectedThreadID ?? ""] = newValue }
+    }
+    var currentDiff: String {
+        get { diffs[selectedThreadID ?? "", default: ""] }
+        set { diffs[selectedThreadID ?? ""] = newValue }
+    }
     @Published var directoryPath = "/root/workspace"
     @Published var directoryEntries: [WorkspaceEntry] = []
     @Published var filePreviewName: String?
@@ -31,7 +50,7 @@ final class CodexWorkspaceModel: ObservableObject {
     @Published var composerText = ""
     @Published var desktopModeEnabled: Bool {
         didSet {
-            UserDefaults.standard.set(desktopModeEnabled, forKey: CodexPadPreferenceKey.desktopMode)
+            preferences.set(desktopModeEnabled, forKey: CodexPadPreferenceKey.desktopMode)
             if !desktopModeEnabled {
                 isDesktopComposerEngaged = false
             }
@@ -39,7 +58,7 @@ final class CodexWorkspaceModel: ObservableObject {
     }
     @Published var showAllFeaturesInTouchMode = false {
         didSet {
-            UserDefaults.standard.set(
+            preferences.set(
                 showAllFeaturesInTouchMode,
                 forKey: CodexPadPreferenceKey.showAllFeaturesInTouchMode
             )
@@ -48,7 +67,7 @@ final class CodexWorkspaceModel: ObservableObject {
     @Published private(set) var composerFocusGeneration = 0
     @Published var workspacePath = "/root/workspace" {
         didSet {
-            UserDefaults.standard.set(workspacePath, forKey: CodexPadPreferenceKey.workspacePath)
+            preferences.set(workspacePath, forKey: CodexPadPreferenceKey.workspacePath)
         }
     }
     @Published var availableModels: [CodexModelOption] = []
@@ -67,59 +86,88 @@ final class CodexWorkspaceModel: ObservableObject {
     }
     @Published var linkedFolderPhase: LinkedFolderPhase = .disconnected
     @Published var protocolEvents: [ProtocolEvent] = []
-    @Published var activeTurnID: String?
-    @Published var isTurnRunning = false
+    @Published private var activeTurns: [String: String] = [:]
+    @Published private var startingTurns: Set<String> = []
+    @Published private(set) var isCreatingThread = false
+    var activeTurnID: String? { activeTurns[selectedThreadID ?? ""] }
+    var isTurnRunning: Bool {
+        activeTurnID != nil || startingTurns.contains(selectedThreadID ?? "") || isCreatingThread
+    }
     @Published var workbenchTab: WorkbenchTab = .plan
     @Published var showsSettings = false
     @Published var showsFeatureCenter = false
+    var opensFeaturesAfterSettings = false
     @Published var errorBanner: String?
     @Published var loginURL: URL?
     @Published var deviceCode: String?
     @Published var deviceVerificationURL: URL?
 
-    let rpc: CodexRPCClient
+    let rpc: any CodexRPCServing
     private let demoMode: Bool
+    private let preferences: UserDefaults
     private var didStart = false
+    private var isConnecting = false
+    private var drafts: [String: String] = [:]
+    private var selectionGeneration = 0
+    private var directoryGeneration = 0
+    private var timelineRevisions: [String: Int] = [:]
+    private var turnRevisions: [String: Int] = [:]
     private var isDesktopComposerEngaged = false
     private let linkedFolderGuestPath = "/root/workspaces/codexpad-files"
 
     init(
-        rpc: CodexRPCClient? = nil,
-        demoMode: Bool = ProcessInfo.processInfo.arguments.contains("--codexpad-demo")
+        rpc: (any CodexRPCServing)? = nil,
+        demoMode: Bool = ProcessInfo.processInfo.arguments.contains("--codexpad-demo"),
+        preferences: UserDefaults? = nil
     ) {
+        let preferences = preferences ?? (demoMode
+            ? UserDefaults(suiteName: "CodexPad.Demo.\(UUID().uuidString)")!
+            : .standard)
+        self.preferences = preferences
         let arguments = ProcessInfo.processInfo.arguments
         if arguments.contains("--codexpad-desktop-mode") {
             desktopModeEnabled = true
         } else if arguments.contains("--codexpad-touch-mode") || demoMode {
             desktopModeEnabled = false
         } else {
-            desktopModeEnabled = UserDefaults.standard.bool(forKey: CodexPadPreferenceKey.desktopMode)
+            desktopModeEnabled = preferences.bool(forKey: CodexPadPreferenceKey.desktopMode)
         }
-        let rpc = rpc ?? CodexRPCClient()
+        let rpc: any CodexRPCServing = rpc ?? (demoMode ? CodexDemoRPCClient() as any CodexRPCServing : CodexRPCClient())
         self.rpc = rpc
         self.demoMode = demoMode
-        selectedModelID = UserDefaults.standard.string(forKey: CodexPadPreferenceKey.selectedModel)
-        selectedReasoningEffort = UserDefaults.standard.string(forKey: CodexPadPreferenceKey.selectedReasoningEffort)
-        selectedServiceTier = UserDefaults.standard.string(forKey: CodexPadPreferenceKey.selectedServiceTier)
-        selectedCollaborationMode = UserDefaults.standard.string(forKey: CodexPadPreferenceKey.selectedCollaborationMode)
+        selectedModelID = preferences.string(forKey: CodexPadPreferenceKey.selectedModel)
+        selectedReasoningEffort = preferences.string(forKey: CodexPadPreferenceKey.selectedReasoningEffort)
+        selectedServiceTier = preferences.string(forKey: CodexPadPreferenceKey.selectedServiceTier)
+        selectedCollaborationMode = preferences.string(forKey: CodexPadPreferenceKey.selectedCollaborationMode)
         if arguments.contains("--codexpad-show-all-features") {
             showAllFeaturesInTouchMode = true
         } else if !demoMode {
-            showAllFeaturesInTouchMode = UserDefaults.standard.bool(
+            showAllFeaturesInTouchMode = preferences.bool(
                 forKey: CodexPadPreferenceKey.showAllFeaturesInTouchMode
             )
         }
-        if !demoMode, let savedPath = UserDefaults.standard.string(forKey: CodexPadPreferenceKey.workspacePath) {
+        if !demoMode, let savedPath = preferences.string(forKey: CodexPadPreferenceKey.workspacePath) {
             workspacePath = savedPath
         }
-        if !demoMode, UserDefaults.standard.bool(forKey: CodexPadPreferenceKey.linkedFilesFolder) {
+        if !demoMode, preferences.bool(forKey: CodexPadPreferenceKey.linkedFilesFolder) {
             linkedFolderPhase = .linked(
-                name: UserDefaults.standard.string(forKey: CodexPadPreferenceKey.linkedFolderDisplayName)
+                name: preferences.string(forKey: CodexPadPreferenceKey.linkedFolderDisplayName)
                     ?? "Files workspace"
             )
         }
         rpc.inboundHandler = { [weak self] inbound in
             self?.handle(inbound)
+        }
+        rpc.stateHandler = { [weak self] state in
+            guard let self, !self.demoMode else { return }
+            if case .failed(let message) = state {
+                self.enginePhase = .offline(message: message)
+                self.activeTurns.removeAll()
+                self.startingTurns.removeAll()
+                self.pendingRequests.removeAll()
+            } else if state == .disconnected, self.enginePhase.isReady {
+                self.enginePhase = .offline(message: "The local connection closed. Reconnect to reload thread state.")
+            }
         }
     }
 
@@ -170,9 +218,13 @@ final class CodexWorkspaceModel: ObservableObject {
     }
 
     func connectToLocalEngine() async {
+        guard !isConnecting else { return }
+        isConnecting = true
+        defer { isConnecting = false }
         enginePhase = .starting
         errorBanner = nil
         for attempt in 1...10 {
+            guard !Task.isCancelled else { rpc.disconnect(); return }
             enginePhase = .connecting(attempt: attempt)
             do {
                 try await rpc.connect()
@@ -187,7 +239,8 @@ final class CodexWorkspaceModel: ObservableObject {
             } catch {
                 appendRuntime("Engine probe \(attempt) failed: \(error.localizedDescription)")
                 if attempt < 10 {
-                    try? await Task.sleep(for: .milliseconds(Int64(350 + attempt * 180)))
+                    do { try await Task.sleep(for: .milliseconds(Int64(350 + attempt * 180))) }
+                    catch { rpc.disconnect(); return }
                 }
             }
         }
@@ -249,6 +302,7 @@ final class CodexWorkspaceModel: ObservableObject {
         do {
             var cursor: String?
             var catalog: [CodexModelOption] = []
+            var seenCursors: Set<String> = []
             repeat {
                 let response = try await rpc.request(
                     method: "model/list",
@@ -262,8 +316,13 @@ final class CodexWorkspaceModel: ObservableObject {
                 )
                 catalog.append(contentsOf: (response["data"]?.arrayValue ?? []).compactMap(parseModel))
                 cursor = response["nextCursor"]?.stringValue
+                if let cursor, !seenCursors.insert(cursor).inserted {
+                    throw CodexRPCError(code: nil, message: "model/list repeated a pagination cursor")
+                }
             } while cursor != nil
 
+            var modelIDs: Set<String> = []
+            catalog = catalog.filter { modelIDs.insert($0.id).inserted }
             availableModels = catalog
             let selectedStillExists = catalog.contains { $0.id == selectedModelID }
             if !selectedStillExists {
@@ -315,7 +374,7 @@ final class CodexWorkspaceModel: ObservableObject {
         if demoMode {
             linkedFolderPhase = .linked(name: "CodexPad Demo")
             workspacePath = linkedFolderGuestPath
-            UserDefaults.standard.set(true, forKey: CodexPadPreferenceKey.linkedFilesFolder)
+            preferences.set(true, forKey: CodexPadPreferenceKey.linkedFilesFolder)
             directoryPath = linkedFolderGuestPath
             if let selectedThreadID,
                let index = threads.firstIndex(where: { $0.id == selectedThreadID }) {
@@ -339,9 +398,9 @@ final class CodexWorkspaceModel: ObservableObject {
                 waitsForUser: true
             )
             workspacePath = linkedFolderGuestPath
-            UserDefaults.standard.set(true, forKey: CodexPadPreferenceKey.linkedFilesFolder)
+            preferences.set(true, forKey: CodexPadPreferenceKey.linkedFilesFolder)
             linkedFolderPhase = .linked(
-                name: UserDefaults.standard.string(forKey: CodexPadPreferenceKey.linkedFolderDisplayName)
+                name: preferences.string(forKey: CodexPadPreferenceKey.linkedFolderDisplayName)
                     ?? "Files workspace"
             )
             if let selectedThreadID {
@@ -369,6 +428,10 @@ final class CodexWorkspaceModel: ObservableObject {
     }
 
     func unlinkFilesFolder() async {
+        guard demoMode || enginePhase.isReady else {
+            errorBanner = "Reconnect the engine before unlinking; the saved Files mount is still active."
+            return
+        }
         if !demoMode, enginePhase.isReady {
             do {
                 try await requireSuccessfulCommand(["/bin/umount", linkedFolderGuestPath])
@@ -377,13 +440,14 @@ final class CodexWorkspaceModel: ObservableObject {
                 return
             }
         }
-        UserDefaults.standard.set(false, forKey: CodexPadPreferenceKey.linkedFilesFolder)
-        UserDefaults.standard.removeObject(forKey: CodexPadPreferenceKey.linkedFolderDisplayName)
+        preferences.set(false, forKey: CodexPadPreferenceKey.linkedFilesFolder)
+        preferences.removeObject(forKey: CodexPadPreferenceKey.linkedFolderDisplayName)
         linkedFolderPhase = .disconnected
         workspacePath = "/root/workspace"
         if enginePhase.isReady {
             if let selectedThreadID {
-                _ = try? await rpc.request(
+                do {
+                  _ = try await rpc.request(
                     method: "thread/settings/update",
                     params: .object([
                         "threadId": .string(selectedThreadID),
@@ -392,6 +456,9 @@ final class CodexWorkspaceModel: ObservableObject {
                 )
                 if let index = threads.firstIndex(where: { $0.id == selectedThreadID }) {
                     threads[index].cwd = workspacePath
+                }
+                } catch {
+                    report(error, context: "Folder unlinked, but the thread still uses its previous directory")
                 }
             }
             await loadDirectory(workspacePath)
@@ -527,6 +594,10 @@ final class CodexWorkspaceModel: ObservableObject {
 
     @discardableResult
     func createThread() async -> String? {
+        guard !isCreatingThread else { return nil }
+        isCreatingThread = true
+        defer { isCreatingThread = false }
+        let selectionAtStart = selectionGeneration
         guard enginePhase.isReady else {
             errorBanner = "Start the local engine before creating a thread."
             return nil
@@ -539,11 +610,11 @@ final class CodexWorkspaceModel: ObservableObject {
                 // The iPad app container is the execution boundary; approvals
                 // remain on-request for commands and file changes.
                 "sandbox": .string("danger-full-access"),
-                "personality": .string("pragmatic"),
                 "serviceName": .string("codexpad")
             ]
             if let selectedModel {
                 params["model"] = .string(selectedModel.model)
+                if selectedModel.supportsPersonality { params["personality"] = .string("pragmatic") }
             }
             if let selectedServiceTier {
                 params["serviceTier"] = .string(selectedServiceTier)
@@ -556,7 +627,7 @@ final class CodexWorkspaceModel: ObservableObject {
                 throw CodexRPCError(code: nil, message: "thread/start returned no thread")
             }
             upsertThread(record, atFront: true)
-            selectedThreadID = record.id
+            if selectionGeneration == selectionAtStart { selectedThreadID = record.id }
             timelineByThread[record.id] = []
             requestComposerFocus()
             return record.id
@@ -568,6 +639,9 @@ final class CodexWorkspaceModel: ObservableObject {
 
     func resumeThread(_ id: String) async {
         guard enginePhase.isReady else { return }
+        let selectionAtStart = selectionGeneration
+        let timelineRevision = timelineRevisions[id, default: 0]
+        let turnRevision = turnRevisions[id, default: 0]
         do {
             let response = try await rpc.request(
                 method: "thread/resume",
@@ -579,17 +653,23 @@ final class CodexWorkspaceModel: ObservableObject {
                 upsertThread(record)
                 cwd = record.cwd.isEmpty ? workspacePath : record.cwd
             }
-            applyServerModelSelection(
+            if selectedThreadID == id, selectionGeneration == selectionAtStart {
+              applyServerModelSelection(
                 modelSlug: response["model"]?.stringValue,
                 effort: response["reasoningEffort"]?.stringValue,
                 serviceTier: response["serviceTier"]?.stringValue
             )
-            let turns = rawThread["turns"]?.arrayValue ?? []
-            timelineByThread[id] = turns.flatMap { turn in
-                turn["items"]?.arrayValue?.compactMap(parseTimelineItem) ?? []
             }
-            selectedThreadID = id
-            await loadDirectory(cwd)
+            let turns = rawThread["turns"]?.arrayValue ?? []
+            if timelineRevisions[id, default: 0] == timelineRevision {
+              timelineByThread[id] = turns.flatMap { turn in
+                turn["items"]?.arrayValue?.compactMap(parseTimelineItem) ?? []
+              }
+            }
+            if turnRevisions[id, default: 0] == turnRevision {
+                activeTurns[id] = turns.last(where: { $0["status"]?.stringValue == "inProgress" })?["id"]?.stringValue
+            }
+            if selectedThreadID == id, selectionGeneration == selectionAtStart { await loadDirectory(cwd) }
         } catch {
             report(error, context: "Could not resume the thread")
         }
@@ -597,11 +677,14 @@ final class CodexWorkspaceModel: ObservableObject {
 
     func loadDirectory(_ path: String) async {
         guard enginePhase.isReady else { return }
+        directoryGeneration += 1
+        let generation = directoryGeneration
         do {
             let response = try await rpc.request(
                 method: "fs/readDirectory",
                 params: .object(["path": .string(path)])
             )
+            guard generation == directoryGeneration else { return }
             directoryPath = path
             filePreviewName = nil
             filePreview = ""
@@ -630,6 +713,8 @@ final class CodexWorkspaceModel: ObservableObject {
             return
         }
         guard entry.isFile else { return }
+        directoryGeneration += 1
+        let generation = directoryGeneration
         do {
             let response = try await rpc.request(
                 method: "fs/readFile",
@@ -639,6 +724,7 @@ final class CodexWorkspaceModel: ObservableObject {
                   let data = Data(base64Encoded: encoded) else {
                 throw CodexRPCError(code: nil, message: "The file response was not valid base64")
             }
+            guard generation == directoryGeneration else { return }
             filePreviewName = entry.name
             filePreview = String(data: Data(data.prefix(200_000)), encoding: .utf8)
                 ?? "Binary file — preview unavailable"
@@ -655,14 +741,14 @@ final class CodexWorkspaceModel: ObservableObject {
 
     func sendComposer() async {
         let text = composerText.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, !isTurnRunning else { return }
+        guard enginePhase.isReady, !text.isEmpty, !isTurnRunning else { return }
         var threadID = selectedThreadID
         if threadID == nil {
             threadID = await createThread()
         }
         guard let threadID else { return }
 
-        composerText = ""
+        if selectedThreadID == threadID { composerText = "" }
         requestComposerFocus()
         let clientID = UUID().uuidString
         upsertTimeline(
@@ -677,7 +763,9 @@ final class CodexWorkspaceModel: ObservableObject {
             ),
             in: threadID
         )
-        isTurnRunning = true
+        startingTurns.insert(threadID)
+        let turnRevision = turnRevisions[threadID, default: 0]
+        defer { startingTurns.remove(threadID) }
         setThreadActivity(.running, id: threadID)
 
         do {
@@ -695,9 +783,7 @@ final class CodexWorkspaceModel: ObservableObject {
             if let selectedModel {
                 params["model"] = .string(selectedModel.model)
             }
-            if let selectedServiceTier {
-                params["serviceTier"] = .string(selectedServiceTier)
-            }
+            params["serviceTier"] = selectedServiceTier.map(JSONValue.string) ?? .null
             if let selectedReasoningEffort {
                 params["effort"] = .string(selectedReasoningEffort)
             }
@@ -708,9 +794,14 @@ final class CodexWorkspaceModel: ObservableObject {
                 method: "turn/start",
                 params: .object(params)
             )
-            activeTurnID = response["turn"]?["id"]?.stringValue
+            if turnRevisions[threadID, default: 0] == turnRevision {
+                activeTurns[threadID] = response["turn"]?["status"]?.stringValue == "completed"
+                    ? nil : response["turn"]?["id"]?.stringValue
+            }
         } catch {
-            isTurnRunning = false
+            timelineByThread[threadID]?.removeAll { $0.id == clientID }
+            if selectedThreadID == threadID, composerText.isEmpty { composerText = text }
+            else if drafts[threadID, default: ""].isEmpty { drafts[threadID] = text }
             setThreadActivity(.failed, id: threadID)
             report(error, context: "Could not start the turn")
         }
@@ -733,6 +824,7 @@ final class CodexWorkspaceModel: ObservableObject {
     }
 
     func startReview() async {
+        guard enginePhase.isReady, !isTurnRunning else { return }
         guard let threadID = selectedThreadID else {
             errorBanner = "Choose a thread before starting a review."
             return
@@ -741,6 +833,9 @@ final class CodexWorkspaceModel: ObservableObject {
             appendRuntime("Started review of uncommitted changes")
             return
         }
+        startingTurns.insert(threadID)
+        let revision = turnRevisions[threadID, default: 0]
+        defer { startingTurns.remove(threadID) }
         do {
             let response = try await rpc.request(
                 method: "review/start",
@@ -750,8 +845,9 @@ final class CodexWorkspaceModel: ObservableObject {
                     "delivery": .string("inline")
                 ])
             )
-            activeTurnID = response["turn"]?["id"]?.stringValue
-            isTurnRunning = true
+            if turnRevisions[threadID, default: 0] == revision {
+                activeTurns[threadID] = response["turn"]?["id"]?.stringValue
+            }
         } catch {
             report(error, context: "Could not start the review")
         }
@@ -759,6 +855,10 @@ final class CodexWorkspaceModel: ObservableObject {
 
     func archiveSelectedThread() async {
         guard let id = selectedThreadID else { return }
+        await archiveThread(id)
+    }
+
+    func archiveThread(_ id: String) async {
         do {
             _ = try await rpc.request(
                 method: "thread/archive",
@@ -766,13 +866,15 @@ final class CodexWorkspaceModel: ObservableObject {
             )
             threads.removeAll { $0.id == id }
             timelineByThread[id] = nil
-            selectedThreadID = threads.first?.id
+            activeTurns[id] = nil
+            if selectedThreadID == id { await selectThread(threads.first?.id) }
         } catch {
             report(error, context: "Could not archive the thread")
         }
     }
 
     func resolve(_ request: PendingServerRequest, choice: ApprovalChoice) async {
+        guard pendingRequests.contains(where: { $0.id == request.id }) else { return }
         if request.kind == .unsupported {
             do {
                 try await rpc.respondUnsupported(to: request.rpcID, method: request.method)
@@ -832,6 +934,15 @@ final class CodexWorkspaceModel: ObservableObject {
         } catch {
             report(error, context: "Could not answer Codex")
         }
+    }
+
+    func answerCommandDecision(_ request: PendingServerRequest, decision: JSONValue) async {
+        guard request.rawParams["availableDecisions"]?.arrayValue?.contains(decision) == true,
+              pendingRequests.contains(where: { $0.id == request.id }) else { return }
+        do {
+            try await rpc.respond(to: request.rpcID, result: .object(["decision": decision]))
+            pendingRequests.removeAll { $0.id == request.id }
+        } catch { report(error, context: "Could not send command decision") }
     }
 
     func answer(_ request: PendingServerRequest, values: [String: String]) async {
@@ -923,6 +1034,9 @@ final class CodexWorkspaceModel: ObservableObject {
         do {
             _ = try await rpc.request(method: "account/logout")
             account = AccountSummary()
+            deviceCode = nil
+            deviceVerificationURL = nil
+            loginURL = nil
         } catch {
             report(error, context: "Could not sign out")
         }
@@ -939,7 +1053,8 @@ final class CodexWorkspaceModel: ObservableObject {
 
     private func handleNotification(method: String, params: JSONValue) {
         recordProtocolEvent(method: method, payload: params)
-        let threadID = params["threadId"]?.stringValue ?? selectedThreadID
+        // Never attribute an unscoped/background event to whichever thread is visible.
+        let threadID = params["threadId"]?.stringValue
         switch method {
         case "thread/started":
             if let raw = params["thread"], let record = parseThread(raw) {
@@ -950,21 +1065,31 @@ final class CodexWorkspaceModel: ObservableObject {
                 setThreadActivity(parseActivity(params["status"]), id: threadID)
             }
         case "turn/started":
-            activeTurnID = params["turn"]?["id"]?.stringValue
-            isTurnRunning = true
-            if let threadID { setThreadActivity(.running, id: threadID) }
+            if let threadID {
+                turnRevisions[threadID, default: 0] += 1
+                activeTurns[threadID] = params["turn"]?["id"]?.stringValue
+                plans[threadID] = []
+                diffs[threadID] = ""
+                setThreadActivity(.running, id: threadID)
+            }
         case "turn/completed":
-            isTurnRunning = false
-            activeTurnID = nil
-            requestComposerFocus()
-            if let threadID { setThreadActivity(.idle, id: threadID) }
+            if let threadID {
+                turnRevisions[threadID, default: 0] += 1
+                if activeTurns[threadID] == params["turn"]?["id"]?.stringValue {
+                    activeTurns[threadID] = nil
+                }
+                startingTurns.remove(threadID)
+                setThreadActivity(params["turn"]?["status"]?.stringValue == "failed" ? .failed : .idle, id: threadID)
+                if selectedThreadID == threadID { requestComposerFocus() }
+            }
             if let items = params["turn"]?["items"]?.arrayValue, let threadID {
                 for item in items.compactMap(parseTimelineItem) {
                     upsertTimeline(item, in: threadID)
                 }
             }
         case "item/started", "item/completed":
-            if let raw = params["item"], let item = parseTimelineItem(raw), let threadID {
+            if let raw = params["item"], var item = parseTimelineItem(raw), let threadID {
+                if method == "item/started", item.kind != .user { item.state = .running }
                 upsertTimeline(item, in: threadID)
             }
         case "item/agentMessage/delta":
@@ -974,10 +1099,11 @@ final class CodexWorkspaceModel: ObservableObject {
         case "item/commandExecution/outputDelta":
             appendDelta(params["delta"]?.stringValue, to: params["itemId"]?.stringValue, detail: true, threadID: threadID)
         case "turn/diff/updated":
-            currentDiff = params["diff"]?.stringValue ?? currentDiff
+            if let threadID { diffs[threadID] = params["diff"]?.stringValue ?? "" }
         case "turn/plan/updated":
-            parsePlan(params)
+            if let threadID { parsePlan(params, threadID: threadID) }
         case "thread/settings/updated":
+            guard threadID == selectedThreadID, threadID != nil else { return }
             let settings = params["threadSettings"] ?? .object([:])
             applyServerModelSelection(
                 modelSlug: settings["model"]?.stringValue,
@@ -991,8 +1117,10 @@ final class CodexWorkspaceModel: ObservableObject {
         case "account/updated":
             account.authMode = params["authMode"]?.stringValue
             account.plan = params["planType"]?.stringValue
-            Task { await refreshModels() }
+            if account.authMode == nil { account = AccountSummary() }
+            Task { await refreshAccount(); await refreshModels() }
         case "model/rerouted":
+            guard threadID == selectedThreadID, threadID != nil else { return }
             applyServerModelSelection(
                 modelSlug: params["toModel"]?.stringValue,
                 effort: selectedReasoningEffort,
@@ -1002,6 +1130,9 @@ final class CodexWorkspaceModel: ObservableObject {
                 appendRuntime("Codex rerouted this turn to \(toModel)")
             }
         case "account/login/completed":
+            deviceCode = nil
+            deviceVerificationURL = nil
+            loginURL = nil
             if params["success"]?.boolValue == true {
                 Task { await refreshAccount() }
             } else if let message = params["error"]?.stringValue {
@@ -1100,11 +1231,12 @@ final class CodexWorkspaceModel: ObservableObject {
             kind: kind,
             threadID: params["threadId"]?.stringValue,
             title: title,
-            message: params["reason"]?.stringValue ?? questions.first?.prompt ?? "Review the request before continuing.",
+            message: params["message"]?.stringValue ?? params["reason"]?.stringValue ?? questions.first?.prompt ?? "Review the request before continuing.",
             detail: detail,
             questions: questions,
             rawParams: params
         )
+        pendingRequests.removeAll { $0.rpcID == id }
         pendingRequests.append(request)
         if let threadID = request.threadID {
             setThreadActivity(.waiting, id: threadID)
@@ -1118,8 +1250,8 @@ final class CodexWorkspaceModel: ObservableObject {
         return .object([
             "mode": .string(preset.mode ?? "default"),
             "settings": .object([
-                "model": .string(preset.model ?? selectedModel.model),
-                "reasoning_effort": (preset.reasoningEffort ?? selectedReasoningEffort).map(JSONValue.string) ?? .null,
+                "model": .string(selectedModel.model),
+                "reasoning_effort": selectedReasoningEffort.map(JSONValue.string) ?? .null,
                 "developer_instructions": .null
             ])
         ])
@@ -1169,7 +1301,7 @@ final class CodexWorkspaceModel: ObservableObject {
         }
         if forceDefaults
             || !selectedModel.reasoningEfforts.contains(where: { $0.effort == selectedReasoningEffort }) {
-            selectedReasoningEffort = selectedModel.defaultReasoningEffort
+            selectedReasoningEffort = selectedModel.reasoningEfforts.isEmpty ? nil : selectedModel.defaultReasoningEffort
         }
         if forceDefaults
             || (selectedServiceTier != nil
@@ -1201,14 +1333,14 @@ final class CodexWorkspaceModel: ObservableObject {
     }
 
     private func restoreLinkedFolderState() async {
-        guard UserDefaults.standard.bool(forKey: CodexPadPreferenceKey.linkedFilesFolder) else {
+        guard preferences.bool(forKey: CodexPadPreferenceKey.linkedFilesFolder) else {
             linkedFolderPhase = .disconnected
             return
         }
         do {
             try await requireSuccessfulCommand(["/bin/mountpoint", "-q", linkedFolderGuestPath])
             linkedFolderPhase = .linked(
-                name: UserDefaults.standard.string(forKey: CodexPadPreferenceKey.linkedFolderDisplayName)
+                name: preferences.string(forKey: CodexPadPreferenceKey.linkedFolderDisplayName)
                     ?? "Files workspace"
             )
             workspacePath = linkedFolderGuestPath
@@ -1246,9 +1378,9 @@ final class CodexWorkspaceModel: ObservableObject {
 
     private func persistOptional(_ value: String?, key: String) {
         if let value {
-            UserDefaults.standard.set(value, forKey: key)
+            preferences.set(value, forKey: key)
         } else {
-            UserDefaults.standard.removeObject(forKey: key)
+            preferences.removeObject(forKey: key)
         }
     }
 
@@ -1337,9 +1469,9 @@ final class CodexWorkspaceModel: ObservableObject {
         }
     }
 
-    private func parsePlan(_ params: JSONValue) {
+    private func parsePlan(_ params: JSONValue, threadID: String) {
         guard let steps = params["plan"]?.arrayValue ?? params["steps"]?.arrayValue else { return }
-        plan = steps.enumerated().map { index, raw in
+        plans[threadID] = steps.enumerated().map { index, raw in
             PlanStep(
                 id: raw["id"]?.stringValue ?? "step-\(index)",
                 text: raw["step"]?.stringValue ?? raw["text"]?.stringValue ?? "",
@@ -1358,9 +1490,11 @@ final class CodexWorkspaceModel: ObservableObject {
             items[index].body += delta
         }
         timelineByThread[threadID] = items
+        timelineRevisions[threadID, default: 0] += 1
     }
 
     private func upsertTimeline(_ item: TimelineItem, in threadID: String) {
+        timelineRevisions[threadID, default: 0] += 1
         var items = timelineByThread[threadID] ?? []
         if let index = items.firstIndex(where: { $0.id == item.id }) {
             items[index] = item
