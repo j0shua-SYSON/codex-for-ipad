@@ -36,6 +36,7 @@ struct CodexWorkbenchView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .background(CodexPalette.canvas)
+        .accessibilityElement(children: .contain)
         .accessibilityIdentifier("codexpad.workbench")
         .navigationTitle("Workbench")
         .navigationBarTitleDisplayMode(.inline)
