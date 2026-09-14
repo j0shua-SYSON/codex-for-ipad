@@ -47,7 +47,7 @@ def main():
             process.stdin.write(json.dumps(value) + "\n")
             process.stdin.flush()
 
-    def request(identifier, method, params):
+    def request(identifier, method, params, *, expect_error=False):
         send({"id": identifier, "method": method, "params": params})
         deadline = time.monotonic() + 120
         while True:
@@ -69,7 +69,12 @@ def main():
                     raise RuntimeError(f"Unexpected interactive server request: {response['method']}")
                 continue
             if "error" in response:
+                if expect_error:
+                    print(f"PASS: real iSH {method} reports an error: {response['error']}", flush=True)
+                    return response["error"]
                 raise RuntimeError(f"{method}: {response['error']}")
+            if expect_error:
+                raise AssertionError(f"{method} unexpectedly succeeded: {response}")
             print(f"PASS: real iSH {method}", flush=True)
             return response["result"]
 
@@ -108,12 +113,28 @@ def main():
         request(3, "model/list", {"limit": 100, "includeHidden": True})
         request(4, "fs/readDirectory", {"path": "/root/workspace"})
         command = request(5, "command/exec", {
-            "command": ["/bin/sh", "-c", "printf codexpad-guest-ok; /usr/bin/git --version; /usr/bin/rg --version"],
+            "command": ["/bin/sh", "-c", "set -e; printf codexpad-guest-ok; /usr/bin/git --version; /usr/bin/rg --version"],
             "cwd": "/root/workspace", "timeoutMs": 30000,
             "sandboxPolicy": {"type": "dangerFullAccess"},
         })
         assert command["exitCode"] == 0, command
         assert "codexpad-guest-ok" in command["stdout"], command
+        assert "git version " in command["stdout"], command
+        assert "ripgrep " in command["stdout"], command
+        nonzero = request(6, "command/exec", {
+            "command": ["/bin/sh", "-c", "pwd; printf 'stderr-probe' >&2; exit 7"],
+            "cwd": "/root/workspace", "timeoutMs": 30000,
+            "sandboxPolicy": {"type": "dangerFullAccess"},
+        })
+        assert nonzero["exitCode"] == 7, nonzero
+        assert nonzero["stdout"].strip() == "/root/workspace", nonzero
+        assert nonzero["stderr"] == "stderr-probe", nonzero
+        missing = request(7, "command/exec", {
+            "command": ["/codexpad-deliberately-missing-executable"],
+            "cwd": "/root/workspace", "timeoutMs": 30000,
+            "sandboxPolicy": {"type": "dangerFullAccess"},
+        }, expect_error=True)
+        assert "No such file" in missing["message"] or "os error 2" in missing["message"], missing
         if diagnostics:
             diagnostics.flush()
             with open(args.stderr_log) as log:
@@ -128,11 +149,17 @@ def main():
             except (OSError, websocket.WebSocketException):
                 pass
         if process.poll() is None:
-            os.killpg(process.pid, signal.SIGTERM)
+            try:
+                os.killpg(process.pid, signal.SIGTERM)
+            except ProcessLookupError:
+                pass
             try:
                 process.wait(timeout=5)
             except subprocess.TimeoutExpired:
-                os.killpg(process.pid, signal.SIGKILL)
+                try:
+                    os.killpg(process.pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
                 process.wait()
         if diagnostics:
             diagnostics.close()

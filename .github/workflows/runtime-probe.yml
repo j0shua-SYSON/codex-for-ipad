@@ -59,6 +59,7 @@ jobs:
         run: |
           meson setup build -Dengine=asbestos -Dkernel=ish -Dbuildtype=debug -Dlog=strace -Dlog_handler=stderr
           ninja -C build
+          build/uname_test
       - name: Exercise SSE instructions and masked futex waits
         shell: bash
         run: |
