@@ -112,6 +112,7 @@ jobs:
           path: |
             artifacts/*probe.log
             artifacts/guest-*.log
+            artifacts/guest-*.txt
             artifacts/runtime-manifest.json
             artifacts/instruction-disassembly.txt
             artifacts/poll-files-redirected.log
@@ -164,6 +165,7 @@ jobs:
             artifacts/runtime-probe.log
             artifacts/runtime-manifest.json
             artifacts/guest-backtrace.txt
+            artifacts/guest-*.txt
             artifacts/instruction-disassembly.txt
             artifacts/poll-files-redirected.log
             artifacts/guest-symbols.txt

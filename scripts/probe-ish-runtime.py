@@ -6,6 +6,7 @@ import os
 import queue
 import signal
 import subprocess
+import sys
 import threading
 import time
 
@@ -194,6 +195,19 @@ def main():
     except Exception as error:
         # Retain the reason in the tee'd evidence, not only the hosted job log.
         print(f"FAIL: {type(error).__name__}: {error}", flush=True)
+        if sys.platform == "darwin" and not args.debugger_lldb and process.poll() is None and args.stderr_log:
+            # Capture the original hung process before cleanup. Crash-only LLDB
+            # reruns cannot explain a deadlock and may change its scheduling.
+            for command, suffix in [
+                (["/usr/bin/sample", str(process.pid), "2", "-file", args.stderr_log + ".sample.txt"], ".sample-command.txt"),
+                (["lldb", "--batch", "-p", str(process.pid),
+                  "-o", "thread backtrace all", "-o", "process detach"], ".backtrace.txt"),
+            ]:
+                try:
+                    with open(args.stderr_log + suffix, "wb") as capture:
+                        subprocess.run(command, stdout=capture, stderr=subprocess.STDOUT, timeout=30, check=False)
+                except (OSError, subprocess.TimeoutExpired) as diagnostic_error:
+                    print(f"Diagnostic capture failed: {diagnostic_error}", flush=True)
         raise
     finally:
         stopping.set()
