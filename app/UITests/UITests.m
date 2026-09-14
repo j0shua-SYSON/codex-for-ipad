@@ -118,7 +118,11 @@
         XCTAssertTrue(workbenchToggle.isHittable);
         [workbenchToggle tap];
         XCTAssertTrue([workbench waitForExistenceWithTimeout:5]);
-        XCTAssertTrue([[app descendantsMatchingType:XCUIElementTypeAny][@"codexpad.workbench-tabs"] exists]);
+        XCUIElement *sections = app.buttons[@"codexpad.workbench-tabs"];
+        XCTAssertTrue(sections.isHittable);
+        [sections tap];
+        [app.buttons[@"Files"] tap];
+        XCTAssertTrue([app.buttons[@"Refresh directory"] waitForExistenceWithTimeout:5]);
         [app.buttons[@"Done"] tap];
         XCTAssertTrue([workbench waitForNonExistenceWithTimeout:5]);
     }
