@@ -10,7 +10,7 @@ CodexPad is a native iPadOS workspace for the open-source Codex coding agent. It
 > [!IMPORTANT]
 > CodexPad is an independent community port, not an official OpenAI or iSH app. It is an actively developed, unsigned preview rather than an App Store release.
 >
-> Verification is in progress. The repaired iSH runtime now initializes Codex and reads account, model and filesystem data. Command execution still needs a Rust process-launch compatibility fix that is under test. Cross-compilation and demo UI tests alone do not establish a working local agent. See [verification status](docs/VERIFICATION.md) before installing or relying on this preview.
+> Verification is in progress. The repaired iSH runtime initializes Codex, reads account/model/filesystem data and executes commands using the adapted Rust process-launch path. Automatic guest boot and intermittent Darwin emulator crashes remain release blockers under test. Cross-compilation and demo UI tests alone do not establish a working local agent. See [verification status](docs/VERIFICATION.md) before installing or relying on this preview.
 
 ## What runs locally
 
@@ -77,11 +77,13 @@ The workflow:
 2. applies the i686-musl patch and the version-locked guest Rust process-launch patch;
 3. proves patched Rust process spawning inside real iSH, then cross-compiles `codex-app-server` with the upstream-pinned Rust toolchain;
 4. builds a pinned Alpine x86 image with Git, ripgrep, Python, SSH, and the local OpenRC service;
-5. tests emulator instructions and real Codex initialization, model/account reads, filesystem access, and harmless Git/ripgrep execution on Linux and Darwin hosts, over stdio and WebSocket;
+5. tests emulator instructions and real Codex initialization, model/account reads, filesystem access, and harmless Git/ripgrep execution on Linux and Darwin hosts, over stdio, WebSocket, and automatic OpenRC startup;
 6. builds an unsigned arm64 iPadOS app only after the real-runtime gate and native model regressions pass; and
 7. uploads the runtime, binary, test evidence, and (on success) `CodexPad-unsigned-iPadOS` artifacts.
 
 For app-only changes, the optional `runtime_artifact_run_id` input reuses a previous runtime artifact. The runtime's exact revision is checked and the real-emulator gate runs again; it does not bypass verification.
+
+For guest package or startup changes, additionally set `repackage_runtime=true`. This extracts and checksum-verifies the previously built binary, then packages it with the current Alpine overlay and repeats all runtime gates. It avoids recompiling Rust when only the root filesystem changes. A non-default binary revision must be supplied explicitly as `codex_revision`.
 
 Every app artifact includes `CodexPadBuild.json`, recording the app commit, source runtime run, runtime SHA-256 and the manifest extracted from that actual runtime. Declared repository pins are recorded separately so testing a candidate override cannot mislabel the embedded binary.
 
