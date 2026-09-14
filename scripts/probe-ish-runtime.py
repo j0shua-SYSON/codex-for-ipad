@@ -42,7 +42,13 @@ def main():
         send({"id": identifier, "method": method, "params": params})
         deadline = time.monotonic() + 120
         while True:
-            response = messages.get(timeout=max(0.1, deadline - time.monotonic()))
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                raise TimeoutError(f"No response to {method} within 120 seconds")
+            try:
+                response = messages.get(timeout=remaining)
+            except queue.Empty as error:
+                raise TimeoutError(f"No response to {method} within 120 seconds") from error
             if response is None:
                 try:
                     status = process.wait(timeout=5)

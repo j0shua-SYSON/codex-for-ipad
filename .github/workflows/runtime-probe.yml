@@ -1,10 +1,21 @@
 name: Real iSH runtime probe
 on:
+  workflow_call:
+    inputs:
+      artifact_run_id:
+        required: true
+        type: string
+      expected_revision:
+        required: false
+        type: string
   workflow_dispatch:
     inputs:
       artifact_run_id:
         description: Successful compatibility run containing codexpad-runtime-i686
         required: true
+        type: string
+      expected_revision:
+        description: Optional exact Codex revision to require in the runtime
         type: string
 permissions:
   contents: read
@@ -45,11 +56,15 @@ jobs:
           done
       - name: Import and execute packaged guest
         shell: bash
+        env:
+          EXPECTED_REVISION: ${{ inputs.expected_revision }}
         run: |
           set -euo pipefail
           ulimit -c unlimited
           sudo sysctl -w kernel.core_pattern="$GITHUB_WORKSPACE/artifacts/core.%p"
           tar -xOf artifacts/runtime/codexpad-rootfs.tar.gz ./usr/local/share/codexpad/runtime.json | tee artifacts/runtime-manifest.json
+          revision="${EXPECTED_REVISION:-$(jq -r '.codex.revision' Dependencies/upstreams.json)}"
+          jq -e --arg revision "$revision" '.codexRevision == $revision' artifacts/runtime-manifest.json
           build/tools/fakefsify artifacts/runtime/codexpad-rootfs.tar.gz artifacts/guest
           timeout 30 build/ish -f artifacts/guest /bin/busybox echo ISH_BASELINE_OK
           timeout 60 build/ish -f artifacts/guest /usr/local/libexec/codexpad/codex-app-server --help
@@ -58,6 +73,14 @@ jobs:
         if: failure()
         shell: bash
         run: |
+          if test -f artifacts/runtime-probe.log; then
+            tar -xOf artifacts/runtime/codexpad-rootfs.tar.gz ./usr/local/libexec/codexpad/codex-app-server > artifacts/guest-app-server
+            fault="$(sed -n 's/.*illegal instruction at \(0x[0-9a-f]*\):.*/\1/p' artifacts/runtime-probe.log | tail -1)"
+            if test -n "$fault"; then
+              addr2line -Cfipe artifacts/guest-app-server "$fault" | tee artifacts/guest-symbols.txt
+              objdump -d --start-address="$((fault - 96))" --stop-address="$((fault + 96))" artifacts/guest-app-server >> artifacts/guest-symbols.txt
+            fi
+          fi
           for core in artifacts/core.*; do
             test -f "$core" || continue
             gdb -batch build/ish "$core" \
@@ -75,3 +98,4 @@ jobs:
             artifacts/runtime-manifest.json
             artifacts/guest-backtrace.txt
             artifacts/instruction-disassembly.txt
+            artifacts/guest-symbols.txt
