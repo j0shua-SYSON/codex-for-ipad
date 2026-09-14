@@ -1714,7 +1714,7 @@ final class CodexWorkspaceModel: ObservableObject {
         currentDiff = """
         diff --git a/Dependencies/upstreams.json b/Dependencies/upstreams.json
         +  \"codex\": {
-        +    \"revision\": \"6bd3f5e3db82…\",
+        +    \"revision\": \"\(CodexFeatureCatalog.upstreamRevision ?? "unavailable")\",
         +    \"target\": \"i686-unknown-linux-musl\"
         +  }
         """

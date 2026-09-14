@@ -97,13 +97,15 @@ For a Mac build, clone with submodules and open `iSH.xcodeproj`. Pass `CODEXPAD_
 
 ## Clean upstream updates
 
-The current upgrade candidate pins upstream `5b1d6560181680f95cde95c14ed042acc02248ed` (the latest `main` snapshot observed on September 14, 2026), using Rust 1.95.0. It adds project management, queued prompts, attachments, sections, Bedrock setup, user-verification methods, and `thread/revert` in place of `thread/rollback`.
+The current upgrade candidate pins upstream `d77ebc72237a639b6d877f2edc3b20b54631f25e` (the latest `main` snapshot observed on September 14, 2026 at 10:56 UTC), using Rust 1.95.0. It adds project management, queued prompts, attachments, sections, Bedrock setup, user-verification methods, and `thread/revert` in place of `thread/rollback`.
 
 The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patches, and runs the build and real-runtime gates before opening a pin-update pull request. The parity gate compares stable and experimental method names with the GUI catalog and verifies that the bundled stable schema exactly matches upstream. New methods and schema changes require explicit integration work. A Rust version change also requires reviewing the guest standard-library patch; it fails closed on an unreviewed compiler revision. These checks do not replace native regressions or physical-device verification.
 
 Platform-specific code is concentrated in `app/CodexPad`, `runtime`, `patches`, and the build workflows, with small host hooks in `AppGroup.m`, `SceneDelegate.m`, `TerminalViewController`, and the Xcode project. The upstream Codex checkout is never edited in place, and the iSH changes remain deliberately narrow and reviewable.
 
 The small target layer is documented in [`compat/README.md`](compat/README.md). It is deliberately isolated so a future upstream implementation can replace it without forking Codex's application logic.
+
+Rust, Zig and cargo-zigbuild are pinned. Hosted compilation caches are separated by the toolchain and compatibility-patch hashes; source updates can reuse matching dependencies, but the patched-Rust smoke test and complete runtime gates still run. No compiler cache is downloaded to a contributor's C: drive.
 
 ## Platform limits
 

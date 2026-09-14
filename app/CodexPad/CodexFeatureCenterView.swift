@@ -190,7 +190,9 @@ private struct CodexFeatureDetailView: View {
                             Text("This experimental method is absent from upstream’s stable JSON schema. Consult its pinned Rust protocol definition for required fields.")
                                 .font(.callout)
                         }
-                        Link("Pinned upstream protocol definitions", destination: URL(string: "https://github.com/openai/codex/tree/5b1d6560181680f95cde95c14ed042acc02248ed/codex-rs/app-server-protocol/src/protocol/v2")!)
+                        if let url = CodexFeatureCatalog.upstreamProtocolURL {
+                            Link("Pinned upstream protocol definitions", destination: url)
+                        }
                     }
                 }
 

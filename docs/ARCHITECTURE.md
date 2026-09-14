@@ -25,7 +25,7 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 ## Pinned sources
 
 - iSH: `997642f3787cc63e65f7134b7bb0362c74bff8e0`
-- Codex candidate: `5b1d6560181680f95cde95c14ed042acc02248ed`
+- Codex candidate: `d77ebc72237a639b6d877f2edc3b20b54631f25e`
 - Rust: `1.95.0`
 - Guest Rust adapter: `patches/rust-1.95-ish-spawn.patch`, locked to compiler commit `59807616e1fa2540724bfbac14d7976d7e4a3860`; see [compatibility notes](../compat/README.md).
 - Guest target: `i686-unknown-linux-musl`
