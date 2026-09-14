@@ -67,6 +67,11 @@ jobs:
           ninja -C build
           build/uname_test
           timeout 30 build/memory_cow_test
+      - name: Stress host read-write locks with and without signals
+        shell: bash
+        run: |
+          mkdir -p artifacts
+          timeout 50 build/rwlock_stress_test 2>&1 | tee artifacts/rwlock-stress.log
       - name: Exercise SSE instructions and masked futex waits
         shell: bash
         run: |
@@ -116,6 +121,7 @@ jobs:
             artifacts/runtime-manifest.json
             artifacts/instruction-disassembly.txt
             artifacts/poll-files-redirected.log
+            artifacts/rwlock-stress.log
       - name: Diagnose guest crash
         if: failure() && runner.os == 'Linux'
         shell: bash
@@ -165,6 +171,7 @@ jobs:
             artifacts/runtime-probe.log
             artifacts/runtime-manifest.json
             artifacts/guest-backtrace.txt
+            artifacts/rwlock-stress.log
             artifacts/guest-*.txt
             artifacts/instruction-disassembly.txt
             artifacts/poll-files-redirected.log

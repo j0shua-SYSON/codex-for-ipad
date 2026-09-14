@@ -10,7 +10,7 @@ CodexPad is a native iPadOS workspace for the open-source Codex coding agent. It
 > [!IMPORTANT]
 > CodexPad is an independent community port, not an official OpenAI or iSH app. It is an actively developed, unsigned preview rather than an App Store release.
 >
-> Verification is in progress. The repaired iSH runtime initializes Codex, reads account/model/filesystem data and executes commands using the adapted Rust process-launch path. Automatic guest boot and intermittent Darwin emulator crashes remain release blockers under test. Cross-compilation and demo UI tests alone do not establish a working local agent. See [verification status](docs/VERIFICATION.md) before installing or relying on this preview.
+> Verification is in progress. The latest pinned runtime passes initialization, account/model/filesystem reads, command execution and automatic guest boot on Linux and ordinary macOS hosts. A memory-sanitized Darwin run still stalls intermittently during repeated command execution, so the upgrade is not release-ready. Cross-compilation and demo UI tests alone do not establish a working local agent. See [verification status](docs/VERIFICATION.md) before installing or relying on this preview.
 
 ## What runs locally
 

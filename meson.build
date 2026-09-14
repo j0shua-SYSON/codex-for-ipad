@@ -167,6 +167,8 @@ if get_option('kernel') == 'ish'
         test('uname-bounds', uname_test)
         memory_cow_test = executable('memory_cow_test', ['tests/codexpad/memory-cow.c'], dependencies: ish)
         test('memory-cow-race', memory_cow_test, timeout: 30)
+        rwlock_stress_test = executable('rwlock_stress_test', ['tests/codexpad/rwlock-stress.c'], dependencies: ish)
+        test('rwlock-stress', rwlock_stress_test, timeout: 50)
     endif
 
 elif get_option('kernel') == 'linux'
