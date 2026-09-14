@@ -48,6 +48,7 @@ final class CodexWorkspaceModel: ObservableObject {
     @Published var filePreviewName: String?
     @Published var filePreview = ""
     @Published var runtimeLog: [String] = []
+    @Published private(set) var runtimeRevision: String?
     @Published var account = AccountSummary()
     @Published var composerText = ""
     @Published var desktopModeEnabled: Bool {
@@ -252,11 +253,22 @@ final class CodexWorkspaceModel: ObservableObject {
         defer { isConnecting = false }
         enginePhase = .starting
         errorBanner = nil
+        runtimeRevision = nil
         for attempt in 1...10 {
             guard !Task.isCancelled else { rpc.disconnect(); return }
             enginePhase = .connecting(attempt: attempt)
             do {
                 try await rpc.connect()
+                do {
+                    try await verifyRuntimeRevision()
+                } catch {
+                    rpc.disconnect()
+                    let message = "The saved guest runtime does not match this app. Export a backup and import the matching CodexPad runtime from Terminal's filesystem settings. Existing projects and credentials have not been changed. \(error.localizedDescription)"
+                    enginePhase = .offline(message: message)
+                    errorBanner = message
+                    appendRuntime(message)
+                    return
+                }
                 enginePhase = .ready
                 appendRuntime("Connected to Codex app-server on guest loopback")
                 await refreshAccount()
@@ -276,6 +288,27 @@ final class CodexWorkspaceModel: ObservableObject {
         enginePhase = .offline(
             message: "The local Codex service did not become ready. Open Terminal to inspect the guest runtime."
         )
+    }
+
+    private func verifyRuntimeRevision() async throws {
+        guard let expected = CodexFeatureCatalog.upstreamRevision else {
+            throw CodexRPCError(code: nil, message: "The app's upstream manifest is unavailable.")
+        }
+        let response = try await rpc.request(method: "fs/readFile", params: .object([
+            "path": .string("/usr/local/share/codexpad/runtime.json")
+        ]))
+        guard let encoded = response["dataBase64"]?.stringValue,
+              let data = Data(base64Encoded: encoded),
+              let manifest = try? JSONDecoder().decode(JSONValue.self, from: data),
+              let revision = manifest["codexRevision"]?.stringValue,
+              revision.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil else {
+            throw CodexRPCError(code: nil, message: "The guest runtime manifest is missing or invalid.")
+        }
+        runtimeRevision = revision
+        guard revision == expected else {
+            throw CodexRPCError(code: nil, message: "Guest: \(revision.prefix(12)); app: \(expected.prefix(12)).")
+        }
+        appendRuntime("Verified guest Codex revision \(revision)")
     }
 
     func refreshThreads() async {

@@ -59,6 +59,26 @@ struct ModelRegression {
         check(CodexFeatureCatalog.upstreamRevision?.count == 40 && CodexFeatureCatalog.upstreamProtocolURL?.path.contains(CodexFeatureCatalog.upstreamRevision!) == true, "protocol source links resolve from the bundled upstream manifest")
         check(CodexFeatureCatalog.missingRequiredParameters(method: "turn/start", params: .object([:])).contains("threadId"), "schema requires a thread ID before advanced execution")
         check(CodexFeatureCatalog.parameterReference(for: "turn/start")?.contains("definitions") == true, "nested parameter definitions are available offline")
+        let versionRPC = FakeRPC()
+        let versionModel = model(versionRPC)
+        var guestRevision = CodexFeatureCatalog.upstreamRevision!
+        versionRPC.handler = { method, _ in
+            if method == "fs/readFile" {
+                let data = try JSONEncoder().encode(JSONValue.object(["codexRevision": .string(guestRevision)]))
+                return .object(["dataBase64": .string(data.base64EncodedString())])
+            }
+            return .object(["data": .array([])])
+        }
+        await versionModel.connectToLocalEngine()
+        check(versionModel.enginePhase.isReady && versionModel.runtimeRevision == guestRevision, "matching saved runtime is verified before workspace refresh")
+        guestRevision = String(repeating: "0", count: 40)
+        versionRPC.calls.removeAll()
+        await versionModel.connectToLocalEngine()
+        check(!versionModel.enginePhase.isReady && versionModel.errorBanner?.contains("have not been changed") == true, "older saved runtime blocks incompatible GUI operations without modifying user data")
+        check(versionRPC.calls.map(\.0) == ["fs/readFile"], "runtime mismatch issues only a read-only manifest check")
+        versionRPC.handler = { _, _ in .object([:]) }
+        await versionModel.connectToLocalEngine()
+        check(!versionModel.enginePhase.isReady && versionModel.runtimeRevision == nil, "missing runtime metadata fails closed")
         let rpc = FakeRPC()
         let m = model(rpc)
         rpc.event("turn/started", turn("A", "turnA"))
