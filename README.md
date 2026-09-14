@@ -48,7 +48,7 @@ Folder selection does not silently unmount existing access. Unlink the current f
 
 The searchable Feature Center tracks the exact pinned app-server protocol instead of a hand-picked feature list:
 
-- 166 client request methods, 11 server requests, and 84 notifications are classified and parity-gated for the upgrade candidate.
+- 166 client request methods, 11 server requests, and 84 notifications are classified and parity-gated against the pinned upstream protocol.
 - 162 user operations have GUI request routes: 16 native routes and 146 Advanced JSON routes. This is routing coverage, not proof that every operation works on iSH.
 - Stable operations include an offline parameter-schema reference and required-field scaffolding. Experimental methods omitted by upstream's stable schema link to their pinned protocol definitions.
 - Destructive Advanced requests require confirmation and display their structured result and live event stream.
@@ -63,7 +63,7 @@ See [the HIG release checklist](docs/HIG_CHECKLIST.md) and [the architecture](do
 
 Windows contributors do not need Xcode, Rust, Zig, Docker, or local package installs. Start **Codex i686 compatibility** from the Actions tab or with GitHub CLI:
 
-While this upgrade is unmerged, use `--ref upgrade/codex-5b1d65601816` instead of `--ref main` to test the candidate.
+The September 14 verified development build is available in [run 34845049096](https://github.com/j0shua-SYSON/codex-for-ipad/actions/runs/34845049096), artifact **CodexPad-unsigned-iPadOS** (retained for 14 days). It still requires signing before installation on an iPad.
 
 ```powershell
 gh workflow run codex-i686.yml --repo j0shua-SYSON/codex-for-ipad --ref main
@@ -114,7 +114,7 @@ For a Mac build, clone with submodules and open `iSH.xcodeproj`. Pass `CODEXPAD_
 
 ## Clean upstream updates
 
-The current upgrade candidate pins upstream `d77ebc72237a639b6d877f2edc3b20b54631f25e` (the latest `main` snapshot observed on September 14, 2026 at 10:56 UTC), using Rust 1.95.0. It adds project management, queued prompts, attachments, sections, Bedrock setup, user-verification methods, and `thread/revert` in place of `thread/rollback`.
+The app pins upstream `d77ebc72237a639b6d877f2edc3b20b54631f25e` (the latest `main` snapshot observed on September 14, 2026 at 10:56 UTC), using Rust 1.95.0. It adds project management, queued prompts, attachments, sections, Bedrock setup, user-verification methods, and `thread/revert` in place of `thread/rollback`.
 
 The weekly **Propose Codex update** workflow discovers Codex `main`, reads its Rust toolchain, applies the compatibility patches, and runs the build and real-runtime gates before opening a pin-update pull request. The parity gate compares stable and experimental method names with the GUI catalog and verifies that the bundled stable schema exactly matches upstream. New methods and schema changes require explicit integration work. A Rust version change also requires reviewing the guest standard-library patch; it fails closed on an unreviewed compiler revision. These checks do not replace native regressions or physical-device verification.
 
