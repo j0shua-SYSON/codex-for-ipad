@@ -1,6 +1,6 @@
 # Codex GUI feature coverage
 
-For candidate `5b1d6560181680f95cde95c14ed042acc02248ed`, the catalog contains all **166 client request methods**, **11 server-to-client request methods**, and **84 server notifications**. Exact-set coverage verifies that no protocol method is silently omitted; it does not prove runtime support or a purpose-built interface for every operation.
+For candidate `d77ebc72237a639b6d877f2edc3b20b54631f25e`, the catalog contains all **166 client request methods**, **11 server-to-client request methods**, and **84 server notifications**. Exact-set coverage verifies that no protocol method is silently omitted; it does not prove runtime support or a purpose-built interface for every operation.
 
 ## How every feature is reachable
 

@@ -56,6 +56,7 @@ struct ModelRegression {
     }
     static func main() async {
         check(CodexFeatureCatalog.parameterSchema(for: "turn/start") != nil, "pinned request schema is loadable")
+        check(CodexFeatureCatalog.upstreamRevision?.count == 40 && CodexFeatureCatalog.upstreamProtocolURL?.path.contains(CodexFeatureCatalog.upstreamRevision!) == true, "protocol source links resolve from the bundled upstream manifest")
         check(CodexFeatureCatalog.missingRequiredParameters(method: "turn/start", params: .object([:])).contains("threadId"), "schema requires a thread ID before advanced execution")
         check(CodexFeatureCatalog.parameterReference(for: "turn/start")?.contains("definitions") == true, "nested parameter definitions are available offline")
         let rpc = FakeRPC()

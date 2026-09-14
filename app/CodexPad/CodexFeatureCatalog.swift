@@ -410,6 +410,23 @@ enum CodexFeatureCatalog {
         return try? JSONDecoder().decode(JSONValue.self, from: data)
     }()
 
+    static let upstreamRevision: String? = {
+        func resource(_ name: String) -> JSONValue? {
+            guard let url = Bundle.main.url(forResource: name, withExtension: "json"),
+                  let data = try? Data(contentsOf: url) else { return nil }
+            return try? JSONDecoder().decode(JSONValue.self, from: data)
+        }
+        let revision = resource("CodexPadBuild")?["runtime"]?["codexRevision"]?.stringValue
+            ?? resource("upstreams")?["codex"]?["revision"]?.stringValue
+        guard let revision, revision.range(of: "^[0-9a-f]{40}$", options: .regularExpression) != nil else { return nil }
+        return revision
+    }()
+
+    static var upstreamProtocolURL: URL? {
+        guard let upstreamRevision else { return nil }
+        return URL(string: "https://github.com/openai/codex/tree/\(upstreamRevision)/codex-rs/app-server-protocol/src/protocol/v2")
+    }
+
     static func parameterSchema(for method: String) -> JSONValue? {
         guard let entry = requestContract?["oneOf"]?.arrayValue?.first(where: {
             $0["properties"]?["method"]?["enum"]?.arrayValue?.contains(.string(method)) == true
