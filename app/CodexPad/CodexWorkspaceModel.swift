@@ -414,6 +414,7 @@ final class CodexWorkspaceModel: ObservableObject {
     }
 
     func chooseFilesFolder() async {
+        guard linkedFolderPhase != .choosing else { return }
         if demoMode {
             linkedFolderPhase = .linked(name: "CodexPad Demo")
             workspacePath = linkedFolderGuestPath
@@ -430,10 +431,19 @@ final class CodexWorkspaceModel: ObservableObject {
             return
         }
 
+        let previousFolderPhase = linkedFolderPhase
         linkedFolderPhase = .choosing
         do {
+            // Do not revoke a live bookmark/mount before the user has even
+            // selected a replacement. The UI offers an explicit Unlink action.
+            let existing = try await runGuestCommand(["/bin/mountpoint", "-q", linkedFolderGuestPath])
+            if existing["exitCode"]?.intValue == 0 {
+                linkedFolderPhase = .linked(name:
+                    preferences.string(forKey: CodexPadPreferenceKey.linkedFolderDisplayName) ?? "Files workspace")
+                errorBanner = "Unlink the current Files folder before choosing another. Its access has not been changed."
+                return
+            }
             try await requireSuccessfulCommand(["/bin/mkdir", "-p", linkedFolderGuestPath])
-            _ = try? await runGuestCommand(["/bin/umount", linkedFolderGuestPath])
             // iSH's ios filesystem presents UIDocumentPicker here, stores the
             // security-scoped bookmark, and remounts it during the next boot.
             try await requireSuccessfulCommand(
@@ -465,7 +475,7 @@ final class CodexWorkspaceModel: ObservableObject {
             await loadDirectory(linkedFolderGuestPath)
             appendRuntime("Linked a Files folder at \(linkedFolderGuestPath)")
         } catch {
-            linkedFolderPhase = .needsRelink(message: error.localizedDescription)
+            linkedFolderPhase = previousFolderPhase
             report(error, context: "Could not link the Files folder")
         }
     }

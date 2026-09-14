@@ -148,6 +148,25 @@ struct ModelRegression {
         await sender.sendComposer()
         check(sendRPC.calls.count == count && sender.composerText == "offline draft", "offline send neither calls RPC nor loses text")
 
+        let filesRPC = FakeRPC()
+        let files = model(filesRPC)
+        files.workspacePath = "/root/previous"
+        filesRPC.handler = { _, params in
+            let command = params?["command"]?.arrayValue?.first?.stringValue
+            return .object(["exitCode": .integer(command == "/bin/mountpoint" ? 0 : 1)])
+        }
+        await files.chooseFilesFolder()
+        check(filesRPC.calls.count == 1 && files.workspacePath == "/root/previous", "choosing another folder never unmounts live Files access")
+        files.linkedFolderPhase = .disconnected
+        filesRPC.calls.removeAll()
+        filesRPC.handler = { _, params in
+            let command = params?["command"]?.arrayValue?.first?.stringValue
+            return .object(["exitCode": .integer(command == "/bin/mkdir" ? 0 : 1), "stderr": .string("Picker cancelled")])
+        }
+        await files.chooseFilesFolder()
+        check(files.linkedFolderPhase == .disconnected && files.workspacePath == "/root/previous", "cancelled Files selection preserves the previous workspace and link state")
+        check(!filesRPC.calls.contains { $0.1?["command"]?.arrayValue?.first == .string("/bin/umount") }, "folder selection never silently revokes a bookmark")
+
         let demo = CodexWorkspaceModel(demoMode: true)
         await demo.start()
         demo.composerText = "fixture send"
