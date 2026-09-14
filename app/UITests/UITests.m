@@ -274,6 +274,10 @@
        belowNavigationBar:(XCUIElement *)navigationBar {
     XCTAssertTrue(scroller.exists);
     for (NSUInteger attempt = 0; attempt < 12; attempt++) {
+        if (!element.exists) {
+            [scroller swipeUpWithVelocity:XCUIGestureVelocitySlow];
+            continue;
+        }
         CGRect viewport = CGRectInset(scroller.frame, 12, 16);
         CGFloat bottom = CGRectGetMaxY(viewport);
         viewport.origin.y = MAX(CGRectGetMinY(viewport), CGRectGetMaxY(navigationBar.frame) + 8);
