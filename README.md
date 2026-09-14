@@ -95,6 +95,21 @@ gh run download RUN_ID --repo j0shua-SYSON/codex-for-ipad --name CodexPad-unsign
 
 Signing and installation require your own Apple development identity. The unsigned artifact is intended for verification and downstream signing; it cannot be installed directly on a stock iPad.
 
+### Existing installations
+
+An app upgrade does **not** overwrite an existing iSH filesystem. On connection,
+CodexPad reads the guest's runtime manifest and refuses a Codex revision that
+does not match the bundled GUI protocol. It never erases your saved root to make
+an update appear successful.
+
+Export a backup of the current filesystem from the terminal's filesystem
+settings, then import the new `codexpad-rootfs.tar.gz` as a separate filesystem.
+Keep the old filesystem, transfer your projects and `/root/.codex` deliberately,
+and select the new filesystem for the next boot. The credential directory is
+sensitive; keep its backup private. Verify linked Files folders again after the
+switch. Automatic in-place package/data migration is not implemented or claimed
+safe; the filesystem-switch and restoration procedure still needs device testing.
+
 For a Mac build, clone with submodules and open `iSH.xcodeproj`. Pass `CODEXPAD_ROOTFS_PATH=/absolute/path/to/codexpad-rootfs.tar.gz` as an Xcode build setting to embed a verified runtime image.
 
 ## Clean upstream updates
