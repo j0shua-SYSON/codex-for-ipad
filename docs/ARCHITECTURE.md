@@ -1,6 +1,6 @@
 # CodexPad architecture
 
-CodexPad runs the open-source Codex agent and its Linux tool environment locally on iPadOS. Provider-backed model inference remains a network operation. The app combines three layers in one process:
+CodexPad is designed to run the open-source Codex agent and its Linux tool environment locally on iPadOS. Real-runtime verification is incomplete; see [the verification record](VERIFICATION.md). Provider-backed model inference remains a network operation. The app combines three layers in one process:
 
 1. **Native workspace** — an adaptive SwiftUI interface for threads, conversation items, plans, approvals, diffs, files, dynamic models, settings, the complete protocol Feature Center, and a recoverable terminal.
 2. **Codex app-server** — the upstream Rust `codex-app-server`, cross-compiled as a static 32-bit x86 musl executable. The native client uses the upstream v2 JSON-RPC protocol over an app-local WebSocket.
@@ -25,7 +25,7 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 ## Pinned sources
 
 - iSH: `997642f3787cc63e65f7134b7bb0362c74bff8e0`
-- Codex: `6bd3f5e3db8275c10c7e4bbcc1342c32a89b7eee`
+- Codex candidate: `5b1d6560181680f95cde95c14ed042acc02248ed`
 - Rust: `1.95.0`
 - Guest target: `i686-unknown-linux-musl`
 
@@ -49,6 +49,6 @@ iPadOS does not provide unrestricted process execution or a desktop sandbox API.
 - Performance depends on x86 emulation and project size.
 - External toolchains still need Alpine-compatible x86 packages.
 - iSH is not a security boundary. Approved Codex tools can access the complete selected guest root; only expose workspaces and credentials appropriate for that app container.
-- Experimental Code Mode cannot run in-process because Rusty V8 has no i686-musl distribution. The compatibility layer preserves the upstream service API and returns an explicit error only if that disabled-by-default feature is enabled.
+- Upstream moved experimental Code Mode into separate host/runtime crates. The app-server no longer needs the old in-process V8 stubs. This port does not package a compatible Code Mode host and does not claim that feature works.
 - Provider-backed model inference still requires network access; this architecture does not claim offline LLM inference.
 - Distribution must satisfy iSH's GPL terms and the additional iOS permission in `LICENSE.IOS`; Codex notices remain included under Apache-2.0.

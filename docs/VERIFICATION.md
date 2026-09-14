@@ -7,7 +7,10 @@ September 14, 2026 audit and upstream upgrade. This is a development record, not
 - Production Swift model regression executable passed on hosted macOS. It exercises thread isolation, stale responses, draft recovery, duplicate-send prevention, approval decisions, disconnect state and isolated demo responses. The newer run also verifies the bundled schema reference.
 - The candidate protocol gate matches 166 client methods, 11 server requests and 84 notifications against upstream `5b1d6560181680f95cde95c14ed042acc02248ed`.
 - The i686 compatibility patch applies to the candidate. The former V8 in-process stubs are no longer necessary.
-- The old packaged runtime starts BusyBox and prints Codex help under the real iSH emulator. It does **not** complete initialization: after repairing an iSH shutdown null-sighand crash, the actual guest failure is exit 132 (illegal instruction).
+- The candidate cross-compilation and Alpine packaging passed in [run 34824661997](https://github.com/j0shua-SYSON/codex-for-ipad/actions/runs/34824661997). Its original app artifact predates subsequent emulator/UI repairs and must not be treated as the final verified build.
+- The 13-inch simulator desktop test passed twice, including a labelled demo response and restored composer focus after sending, Features dismissal, and Terminal recovery. The smaller-layout tests exposed inspector geometry and accessibility identifier problems; fixes are being retested.
+- Real-emulator regression programs pass for MOVMSKPS, CVTDQ2PD, overlapping SIMD shuffles, masked futex wakeups and timeout validation.
+- The old packaged runtime starts BusyBox and prints Codex help under the real iSH emulator. It does **not** complete initialization. After the shutdown crash and missing instructions were repaired, it reaches a musl allocator assertion during SQLite cleanup (`get_meta`, last-slot index check). Do not bypass this safety check. The candidate runtime is being tested independently.
 
 ## Fixes under verification
 
